@@ -21,7 +21,7 @@ export default function Home() {
             </a>
           </li>
           <li>
-            Setup a time, check out more if my work, or connect with me below:{" "}
+            Setup a time, preview more of my work, or connect with me below:{" "}
           </li>
           <div className="ml-6 mt-1 row-start-3 flex gap-6 flex-wrap items-center">
             <a
