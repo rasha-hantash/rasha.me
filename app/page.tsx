@@ -121,11 +121,10 @@ export default function Home() {
               Humanitarian / Ex-Founder / Senior Software Engineer
             </div>
             <p className="leading-relaxed">
-              Architect of scalable systems. Co-founded rebellion against
-              corporate mischief, channeling millions of dollars back to the
-              people. Specialized in building secure, resilient systems that
-              scale from prototype to production. Delivering delightful products
-              by day, dreaming of tech-driven human unity by night.
+            Senior Software Engineer specializing in scalable architectures. 
+            Previously co-founded a legal-tech startup that serviced $1B+ in class-action settlements. 
+            Specialized in building secure, resilient systems that scale from prototype to production. 
+            Delivering delightful products by day, dreaming of tech-driven human unity by night.
             </p>
           </div>
 
