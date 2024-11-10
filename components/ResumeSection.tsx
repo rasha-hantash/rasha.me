@@ -1,6 +1,12 @@
 import React from 'react';
 
-export default function ResumeSection() {
+interface ResumeSectionProps {
+  id: string;
+  secondaryId: string;
+}
+
+
+export default function ResumeSection({ id, secondaryId }: ResumeSectionProps) {
   const experiences = [
     {
       hex: '0xBF20',
@@ -85,7 +91,7 @@ export default function ResumeSection() {
   ];
 
   return (
-    <div className="mt-8">
+    <div id={id} className="mt-8">
       <div>
         <span className="opacity-60 mr-3">0xBF10</span>
         <h2 className="text-xl mb-1">{'>'}RESUME</h2>
@@ -110,7 +116,7 @@ export default function ResumeSection() {
         ))}
       </div>
 
-      <div className="mt-12">
+      <div id={secondaryId} className="mt-12">
         <span className="opacity-60 mr-3">0xCA10</span>
         <h2 className="text-xl mb-1">{'>'}HACKATHONS</h2>
         {projects.map((project) => (

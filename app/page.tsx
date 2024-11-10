@@ -7,7 +7,7 @@ import SystemInfo from "@/components/SystemInfo";
 
 export default function Home() {
   const [loading, setLoading] = useState(true);
-  const [activeSection, setActiveSection] = useState("ABOUT");
+  const [activeSection, setActiveSection] = useState("");
 
   useEffect(() => {
     setLoading(false);
@@ -18,12 +18,22 @@ export default function Home() {
   }
 
   const sections = [
-    { hex: "0xA000", name: "ABOUT" },
-    { hex: "0xB000", name: "SKILLS" },
-    { hex: "0xC000", name: "PROJECTS" },
-    { hex: "0xD000", name: "RESUME" },
-    { hex: "0xE000", name: "HACKATHONS" },
-  ];
+    { hex: "0xA000", name: "ABOUT", id: "about-section" },
+    // { hex: "0xB000", name: "SKILLS", id: "skills-section" },
+    { hex: "0xC000", name: "PROJECTS", id: "projects-section" },
+    { hex: "0xD000", name: "RESUME", id: "resume-section" },
+    { hex: "0xE000", name: "HACKATHONS", id: "hackathons-section" },
+];
+
+// Add this scroll function
+const scrollToSection = (name:string, id: string) => {
+  const element = document.getElementById(id);
+  if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+  }
+  setActiveSection(name)
+};
+
 
   return (
     <main className="min-h-screen bg-black text-[#ffb000] p-5 font-mono relative overflow-hidden">
@@ -43,25 +53,20 @@ export default function Home() {
           </div>
           {/* Navigation Sections */}
           <div className="justify-end mt-5 right-0 flex flex-wrap gap-2 text-xs">
-            {sections.map((section) => (
-              <button
-                key={section.hex}
-                onClick={() => setActiveSection(section.name)}
-                className={`hover:bg-[#ffb000] hover:text-black  group relative  transition-colors
-            ${
-              activeSection === section.name
-                ? "bg-[#ffb000] text-black"
-                : "hover:border-[#ffb000] "
-            }`}
-              >
-                <div
-                  className=""
-                ></div>
-                <span className="opacity-60 mr-1">[{section.name}]
-                </span>
-              </button>
-            ))}
-          </div>
+    {sections.map((section) => (
+        <button
+            key={section.hex}
+            onClick={() => scrollToSection(section.name, section.id)}
+            className={`hover:bg-[#ffb000] hover:text-black focus:bg-[#ffb000] focus:text-black focus:outline-none group relative transition-colors
+                ${activeSection === section.name
+                    ? "bg-[#ffb000] text-black"
+                    : "hover:border-[#ffb000]"
+                }`}
+        >
+            <span className="opacity-60 mr-1">[{section.name}]</span>
+        </button>
+    ))}
+</div>
         </div>
       
 
@@ -70,26 +75,26 @@ export default function Home() {
           <span className="opacity-60 mr-3">0xBC80</span>
           <a
             href="mailto:rasha.hantash@protonmail.com"
-            className="mr-5 hover:bg-[#ffb000] hover:text-black "
+            className="mr-5 focus:bg-[#ffb000] focus:text-black focus:outline-none hover:bg-[#ffb000] hover:text-black "
           >
             [EMAIL]
           </a>
           <a
             href="https://github.com/rasha-hantash"
-            className="mr-5 hover:bg-[#ffb000] hover:text-black "
+            className="mr-5 focus:bg-[#ffb000] focus:text-black focus:outline-none hover:bg-[#ffb000] hover:text-black "
           >
             [GITHUB]
           </a>
           <a
             href="https://linkedin.com/in/rasha-hantash"
-            className="hover:bg-[#ffb000] hover:text-black "
+            className="focus:bg-[#ffb000] focus:text-black focus:outline-none hover:bg-[#ffb000] hover:text-black "
           >
             [LINKEDIN]
           </a>
         </div>
 
         {/* Content Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+        <div  id="about-section" className="grid grid-cols-1 md:grid-cols-2 gap-10">
           <div className="border border-[#ffb000] p-5">
             <span className="opacity-60 mr-3">0xBD04</span>
             <h2 className="text-xl">{">"}MANIFESTO</h2>
@@ -128,7 +133,7 @@ export default function Home() {
         </div>
 
         {/* Projects */}
-        <div className="mt-8">
+        <div id="projects-section" className="mt-8">
           <span className="opacity-60 mr-3">0xBF10</span>
           <h2 className="text-xl mb-4">{">"}PROJECTS</h2>
           {[
@@ -146,13 +151,13 @@ export default function Home() {
             <a
               key={project.hex}
               href="#"
-              className="block mb-2 p-1 hover:bg-[#ffb000] hover:text-black transition-colors"
+              className="block mb-2 p-1 focus:bg-[#ffb000] focus:text-black focus:outline-none  hover:bg-[#ffb000] hover:text-black transition-colors"
             >
               {project.hex} {">"} {project.title}
             </a>
           ))}
         </div>
-        <ResumeSection />
+        <ResumeSection id="resume-section" secondaryId="hackathons-section" />
       </div>
     </main>
   );
