@@ -3,19 +3,15 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --terminal-amber: #ffb000;
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  text-shadow: 0 0 8px rgba(255, 176, 0, 0.2);
+  animation: flicker 0.15s infinite;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
 }
