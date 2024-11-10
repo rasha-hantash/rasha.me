@@ -118,12 +118,12 @@ export default function Home() {
             <span className="opacity-60 mr-3">0xBD04</span>
             <h2 className="text-xl">{">"}MANIFESTO</h2>
             <div className="text-xs mb-4">
-              Humanitarian / Ex-Founder / Senior Software Engineer
+              Humanitarian / Ex-Founder / Software Engineer
             </div>
             <p className="leading-relaxed">
-            Senior Software Engineer specializing in scalable architectures. 
+            Senior Software Engineer with extensive experience in early stage startups. 
             Previously co-founded a legal-tech startup that serviced $1B+ in class-action settlements. 
-            Specialized in building secure, resilient systems that scale from prototype to production. 
+            Specialized in building secure, resilient systems that scale from prototype to production (0-1). 
             Delivering delightful products by day, dreaming of tech-driven human unity by night.
             </p>
           </div>
