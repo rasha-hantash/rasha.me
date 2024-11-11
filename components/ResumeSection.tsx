@@ -10,7 +10,7 @@ export default function ResumeSection({ id, secondaryId }: ResumeSectionProps) {
     {
       hex: "0xBF20",
       title:
-        "Co-founder & CTO | ClaimClam [NEXTJS/TAILWINDCSS/GOLANG/TERRAFORM/AWS]",
+        "Co-founder & CTO | ClaimClam [NEXTJS/TAILWINDCSS/GO/TF/AWS]",
       duration: "January 2023 – June 2024",
       accomplishments: [
         "Built payment infrastructure processing $1.2M+ in claims with double-entry ledger system",
@@ -92,55 +92,80 @@ export default function ResumeSection({ id, secondaryId }: ResumeSectionProps) {
 
   return (
     <div id={id} className="mt-8">
-      <div>
-        <span className="opacity-60 mr-3">0xBF10</span>
-        <h2 className="text-xl mb-4">{">"}RESUME</h2>
-
-
-        {experiences.map((exp) => (
-          <div key={exp.hex} className="mb-8">
-            <div className="flex items-start">
-              <span className="opacity-60 mr-3 font-mono">{exp.hex}</span>
-              <div className="w-full">
-                <h3 className="font-medium text-lg">{exp.title}</h3>
-                <p className="text-sm opacity-70 mb-2">{exp.duration}</p>
-                <ul className="list-none space-y-1">
-                  {exp.accomplishments.map((acc, idx) => (
-                    <li key={idx} className="text-sm opacity-80 pl-4 relative">
-                      <span className="absolute left-0">{">"}</span>
-                      {acc}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          </div>
-        ))}
+      {/* Header section with responsive layout */}
+      <div className="mb-8">
+        {/* On small screens, hex and title stack vertically */}
+        <div className="md:hidden mb-4">
+          <span className="block opacity-60 mb-2 font-mono">{experiences[0].hex}</span>
+          <h2 className="text-xl font-medium">RESUME</h2>
+        </div>
+        
+        {/* On medium screens and up, hex and title are side by side */}
+        <div className="hidden md:flex items-center mb-4">
+          <span className="opacity-60 mr-3 font-mono">{experiences[0].hex}</span>
+          <h2 className="text-xl font-medium">RESUME</h2>
+        </div>
       </div>
 
-      <div id={secondaryId} className="mt-12">
-        <span className="opacity-60 mr-3">0xCA10</span>
-        <h2 className="text-xl mb-1">{">"}HACKATHONS</h2>
-        {projects.map((project) => (
-          <div key={project.hex} className="mb-6">
-            <div className="flex items-start">
-              <span className="opacity-60 mr-3 font-mono">{project.hex}</span>
-              <div className="w-full">
-                <h3 className="font-medium">{project.title}</h3>
-                <p className="text-sm opacity-70 mb-2">{project.duration}</p>
-                <ul className="list-none space-y-1">
-                  {project.details.map((detail, idx) => (
-                    <li key={idx} className="text-sm opacity-80 pl-4 relative">
-                      <span className="absolute left-0">{">"}</span>
-                      {detail}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+      {/* Experience sections */}
+      {experiences.map((exp) => (
+        <div key={exp.hex} className="mb-8">
+          <div className="flex flex-col md:flex-row md:items-start">
+            {/* Hide this hex on small screens since it's shown above */}
+            <span className="hidden md:block opacity-60 mr-3 font-mono">{exp.hex}</span>
+            <div className="flex-1">
+              <h3 className="font-medium text-lg">{exp.title}</h3>
+              <p className="text-sm opacity-70 mb-2">{exp.duration}</p>
+              <ul className="list-none space-y-1">
+                {exp.accomplishments.map((acc, idx) => (
+                  <li key={idx} className="text-sm opacity-80 pl-4 relative">
+                    <span className="absolute left-0">&gt;</span>
+                    {acc}
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
-        ))}
+        </div>
+      ))}
+
+<div id={secondaryId} className="mt-12">
+      {/* Header section with responsive layout */}
+      <div className="mb-6">
+        {/* Mobile layout - stacked */}
+        <div className="md:hidden mb-4">
+          <span className="block opacity-60 mb-2 font-mono">0xCA10</span>
+          <h2 className="text-xl font-medium">HACKATHONS</h2>
+        </div>
+
+        {/* Desktop layout - side by side */}
+        <div className="hidden md:flex items-center mb-4">
+          <span className="opacity-60 mr-3 font-mono">0xCA10</span>
+          <h2 className="text-xl font-medium">HACKATHONS</h2>
+        </div>
       </div>
+
+      {/* Projects list */}
+      {projects.map((project) => (
+        <div key={project.hex} className="mb-6">
+          <div className="flex flex-col md:flex-row md:items-start">
+            <span className="hidden md:block opacity-60 mr-3 font-mono">{project.hex}</span>
+            <div className="w-full">
+              <h3 className="font-medium">{project.title}</h3>
+              <p className="text-sm opacity-70 mb-2">{project.duration}</p>
+              <ul className="list-none space-y-1">
+                {project.details.map((detail, idx) => (
+                  <li key={idx} className="text-sm opacity-80 pl-4 relative">
+                    <span className="absolute left-0">&gt;</span>
+                    {detail}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
     </div>
   );
 }
