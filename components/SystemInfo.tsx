@@ -9,7 +9,6 @@ interface SystemInfoData {
         isMobile: boolean;
         browser: string;
         os: string;
-        arch: string;
     };
     hostname: string;
     protocol: string;
