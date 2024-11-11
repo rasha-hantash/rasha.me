@@ -9,6 +9,7 @@ const config: Config = {
   theme: {
     extend: {
       animation: {
+        glow: 'glow 1s ease-in-out infinite alternate',
         pulse: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
         scanline: 'scanline 8s linear infinite',
         flicker: 'flicker 0.15s infinite',

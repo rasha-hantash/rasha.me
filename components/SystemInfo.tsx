@@ -9,6 +9,7 @@ interface SystemInfoData {
         isMobile: boolean;
         browser: string;
         os: string;
+        arch: string;
     };
     hostname: string;
     protocol: string;
@@ -60,7 +61,7 @@ export default function SystemInfo() {
                 <div>{">"}MEMORY:{systemInfo?.percentageUsed}%</div>
                 <div>{">"}IP ADDR:{systemInfo?.ip || '127.0.0.1'}</div>
                 <div>{">"}PROTOCOL:{systemInfo?.protocol?.toUpperCase() || 'HTTP'}</div>
-                <div className="animate-pulse">{">"}INTERNWEB: CONNECTED</div>
+                <div className="font-bold animate-pulse">{">"}INTERNWEB: CONNECTED</div>
             </div>
         </div>
     );

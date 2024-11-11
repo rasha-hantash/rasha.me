@@ -25,6 +25,12 @@ export default function Home() {
     { hex: "0xE000", name: "HACKATHONS", id: "hackathons-section" },
   ];
 
+  const blog = {
+    hex: "0xF000",
+    name: "BLOG",
+    href: "https://blog.rasha.me/",
+  };
+
   // Add this scroll function
   const scrollToSection = (name: string, id: string) => {
     const element = document.getElementById(id);
@@ -68,6 +74,20 @@ export default function Home() {
                 <span className="opacity-60 mr-1">[{section.name}]</span>
               </button>
             ))}
+            <a
+              key={blog.hex}
+              href={blog.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`hover:bg-[#ffb000] hover:text-black focus:bg-[#ffb000] focus:text-black focus:outline-none group relative transition-colors
+                ${
+                  activeSection === blog.name
+                    ? "bg-[#ffb000] text-black"
+                    : "hover:border-[#ffb000]"
+                }`}
+            >
+              <span className="opacity-60 mr-1">[{blog.name}]</span>
+            </a>
           </div>
         </div>
 
@@ -99,14 +119,14 @@ export default function Home() {
             [LINKEDIN]
           </a>
           <a
-          href="/RashaHantash-Resume.pdf"
-          download="Rasha-Hantash_Resume.pdf"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="focus:bg-[#ffb000] focus:text-black focus:outline-none hover:bg-[#ffb000] hover:text-black"
-        >
-          [DOWNLOAD_RESUME]
-        </a>
+            href="/RashaHantash-Resume.pdf"
+            download="Rasha-Hantash_Resume.pdf"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="focus:bg-[#ffb000] focus:text-black focus:outline-none hover:bg-[#ffb000] hover:text-black"
+          >
+            [DOWNLOAD_RESUME]
+          </a>
         </div>
 
         {/* Content Grid */}
@@ -121,10 +141,12 @@ export default function Home() {
               Humanitarian / Ex-Founder / Software Engineer
             </div>
             <p className="leading-relaxed">
-            Senior Software Engineer with extensive experience in early stage startups. 
-            Previously co-founded a legal-tech startup that serviced $1B+ in class-action settlements. 
-            Specialized in building secure, resilient systems that scale from prototype to production (0-1). 
-            Delivering delightful products by day, dreaming of tech-driven human unity by night.
+              Senior Software Engineer with extensive experience in early stage
+              startups. Previously co-founded a legal-tech startup that serviced
+              $1B+ in class-action settlements. Specialized in building secure,
+              resilient systems that scale from prototype to production (0-1).
+              Delivering delightful products by day, dreaming of tech-driven
+              human unity by night.
             </p>
           </div>
 
