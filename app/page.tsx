@@ -203,14 +203,18 @@ export default function Home() {
             },
           ].map((project) => (
             <a
-              key={project.hex}
-              href={project.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block mb-2 p-1 focus:bg-[#ffb000] focus:text-black focus:outline-none  hover:bg-[#ffb000] hover:text-black transition-colors"
-            >
-              {project.hex} {">"} {project.title}
-            </a>
+            key={project.hex}
+            href={project.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block mb-2 p-1 focus:bg-[#ffb000] focus:text-black focus:outline-none hover:bg-[#ffb000] hover:text-black transition-colors"
+          >
+            <div className="flex flex-wrap items-baseline gap-x-1">
+              <span className="opacity-60 font-mono whitespace-nowrap">{project.hex}</span>
+              <span className="whitespace-nowrap">&gt;</span>
+              <span className="break-all">{project.title}</span>
+            </div>
+          </a>
           ))}
         </div>
         <ResumeSection id="resume-section" secondaryId="hackathons-section" />
