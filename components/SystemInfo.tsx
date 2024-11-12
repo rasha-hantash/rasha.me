@@ -53,10 +53,9 @@ export default function SystemInfo() {
             <div>
                 ROBCO INDUSTRIES UNIFIED OPERATING SYSTEM
             </div>
-            <div className="flex gap-x-4 text-right">
+            <div className="lg:flex gap-x-4 text-right">
                 <div>{">"}SYSTEM:{systemInfo?.device.os || 'UNKNOWN'}</div>
                 <div>{">"}BROWSER:{systemInfo?.device.browser || 'VISITOR'}</div>
-                {/* <div>{">"} DOMAIN:{systemInfo?.hostname || 'terminal.local'}</div> */}
                 <div>{">"}MEMORY:{systemInfo?.percentageUsed}%</div>
                 <div>{">"}IP ADDR:{systemInfo?.ip || '127.0.0.1'}</div>
                 <div>{">"}PROTOCOL:{systemInfo?.protocol?.toUpperCase() || 'HTTP'}</div>

@@ -158,7 +158,7 @@ export default function Home() {
               <br />
               - Golang
               <br />
-              - REST / gRPC
+              - REST / gRPC / Websockets
               <br />
               - PostgreSQL
               <br />
@@ -182,23 +182,23 @@ export default function Home() {
             {
               hex: "0xBF20",
               title:
-                "HA Fullstack Application w/ RBAC [AUTH0/NextJS/GO/POSTGRES/DOCKER/TF/AWS]",
+                "HA Fullstack Application w/ Role-based Access Control",
               href: "https://github.com/rasha-hantash/fullstack-traba-copy-cat",
             },
             {
               hex: "0xBF40",
               title:
-                "Fan-out Messaging System w/ RBAC [AUTH0/GOLANG/DOCKER/RABBITMQ]",
+                "Fan-out Messaging System w/ Role-based Access Control",
               href: "https://github.com/rasha-hantash/golang/tree/main/distributedsystems",
             },
             {
               hex: "0xBF60",
-              title: "Payments And Ledgering [GO/DOCKER]",
+              title: "Payments And Ledgering",
               href: "https://github.com/rasha-hantash/payments",
             },
             {
               hex: "0xBF80",
-              title: "Algo-Trader - WIP [NEXTJS/GOLANG]",
+              title: "Algo-Trader - WIP",
               href: "https://github.com/rasha-hantash/algo-trader",
             },
           ].map((project) => (
@@ -212,7 +212,7 @@ export default function Home() {
             <div className="flex flex-wrap items-baseline gap-x-1">
               <span className="opacity-60 font-mono whitespace-nowrap">{project.hex}</span>
               <span className="whitespace-nowrap">&gt;</span>
-              <span className="break-all">{project.title}</span>
+              <span>{project.title}</span>
             </div>
           </a>
           ))}
