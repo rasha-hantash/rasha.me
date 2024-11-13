@@ -54,12 +54,12 @@ export default function SystemInfo() {
                 ROBCO INDUSTRIES UNIFIED OPERATING SYSTEM
             </div>
             <div className="lg:flex gap-x-4 text-right">
-                <span>{">"}SYSTEM:{systemInfo?.device.os || 'UNKNOWN'} </span>
-                <span>{">"}BROWSER:{systemInfo?.device.browser || 'VISITOR'} </span>
-                <span>{">"}MEMORY:{systemInfo?.percentageUsed}% </span>
-                <span>{">"}IP ADDR:{systemInfo?.ip || '127.0.0.1'} </span>
-                <span>{">"}PROTOCOL:{systemInfo?.protocol?.toUpperCase() || 'HTTP'} </span>
-                <span className="font-bold animate-pulse">{">"}INTERNWEB: CONNECTED</span>
+                <div>{">"}SYSTEM:{systemInfo?.device.os || 'UNKNOWN'}</div>
+                <div>{">"}BROWSER:{systemInfo?.device.browser || 'VISITOR'}</div>
+                <div>{">"}MEMORY:{systemInfo?.percentageUsed}%</div>
+                <div>{">"}IP ADDR:{systemInfo?.ip || '127.0.0.1'}</div>
+                <div>{">"}PROTOCOL:{systemInfo?.protocol?.toUpperCase() || 'HTTP'}</div>
+                <div className="font-bold animate-pulse">{">"}INTERNWEB: CONNECTED</div>
             </div>
         </div>
     );
