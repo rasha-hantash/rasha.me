@@ -1,0 +1,25 @@
+---
+interface Props {
+  title: string;
+  stack: string;
+  event: string;
+  details: string[];
+}
+
+const { title, stack, event, details } = Astro.props;
+---
+<div class="grid-cell group hover:bg-black hover:text-white transition-colors">
+  <div class="flex items-baseline justify-between mb-2">
+    <h3 class="text-sm font-bold uppercase tracking-wide group-hover:text-accent transition-colors">{title}</h3>
+    <span class="tag group-hover:border-accent">{stack}</span>
+  </div>
+  <p class="text-[11px] uppercase tracking-wider opacity-50 mb-2">{event}</p>
+  <ul class="space-y-1">
+    {details.map((d) => (
+      <li class="text-sm pl-4 relative">
+        <span class="absolute left-0 text-accent">&gt;</span>
+        {d}
+      </li>
+    ))}
+  </ul>
+</div>

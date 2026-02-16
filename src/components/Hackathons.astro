@@ -1,0 +1,15 @@
+---
+import HackathonCard from './HackathonCard.astro';
+import { hackathons } from '../data/hackathons';
+---
+<div id="hackathons">
+  <div class="border border-black p-4 mb-0">
+    <p class="section-label">ARCHIVE // COMPETITIONS</p>
+    <h2 class="section-title">Hackathons</h2>
+  </div>
+  <div class="grid grid-cols-1 md:grid-cols-3">
+    {hackathons.map((h) => (
+      <HackathonCard title={h.title} stack={h.stack} event={h.event} details={h.details} />
+    ))}
+  </div>
+</div>

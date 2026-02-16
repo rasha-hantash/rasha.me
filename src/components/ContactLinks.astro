@@ -1,0 +1,24 @@
+---
+import { links } from '../data/links';
+---
+<div class="grid-cell h-full flex flex-col justify-between">
+  <div>
+    <p class="section-label">CONTACT / LINKS</p>
+    <div class="grid grid-cols-2 gap-2 mt-4">
+      {links.map((link) => (
+        <a
+          href={link.href}
+          class="border border-black px-3 py-2 text-[10px] uppercase tracking-wider text-center hover:bg-black hover:text-white transition-colors"
+          target={link.external ? '_blank' : undefined}
+          rel={link.external ? 'noopener noreferrer' : undefined}
+          download={link.download || undefined}
+        >
+          {link.label}
+        </a>
+      ))}
+    </div>
+  </div>
+  <div class="mt-6">
+    <div class="crosshair relative mx-auto" style="position:relative;width:12px;height:12px;"></div>
+  </div>
+</div>

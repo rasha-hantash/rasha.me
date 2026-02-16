@@ -1,0 +1,44 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Nav from '../../components/Nav.astro';
+import BlogCard from '../../components/BlogCard.astro';
+import Footer from '../../components/Footer.astro';
+import { getCollection } from 'astro:content';
+
+const posts = (await getCollection('blog'))
+  .filter((post) => !post.data.draft)
+  .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
+---
+<BaseLayout title="Blog | Rasha Hantash" description="Posts on engineering, infrastructure, and startups.">
+  <Nav />
+
+  <main class="max-w-4xl mx-auto px-4 py-12 flex-1">
+    <div class="border border-black p-4 mb-6 bracket-corners bracket-corners-bottom">
+      <p class="section-label">TRANSMISSIONS // LOG</p>
+      <h1 class="section-title text-2xl">Blog</h1>
+      <p class="text-sm opacity-60">Notes on engineering, infrastructure, and building things.</p>
+    </div>
+
+    {posts.length === 0 ? (
+      <p class="text-center py-12 opacity-50 uppercase text-sm tracking-wider">NO TRANSMISSIONS FOUND</p>
+    ) : (
+      <div class="grid grid-cols-1 gap-0">
+        {posts.map((post) => (
+          <BlogCard
+            title={post.data.title}
+            description={post.data.description}
+            pubDate={post.data.pubDate}
+            slug={post.id}
+            tags={post.data.tags}
+          />
+        ))}
+      </div>
+    )}
+
+    <div class="mt-8 text-center">
+      <a href="/" class="btn-brutal">&larr; BACK TO HOME</a>
+    </div>
+  </main>
+
+  <Footer />
+</BaseLayout>
