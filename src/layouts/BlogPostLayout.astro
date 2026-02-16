@@ -8,9 +8,9 @@ const formattedDate = new Date(pubDate).toISOString().split('T')[0];
 ---
 <BaseLayout title={`${title} | Rasha Hantash`} description={description}>
   <Nav />
-  <div class="max-w-3xl mx-auto px-2 sm:px-4 py-8 sm:py-12 overflow-x-hidden">
+  <div class="max-w-3xl mx-auto px-2 sm:px-4 py-8 sm:py-12 w-full min-w-0 overflow-hidden">
 
-    <article class="grid-cell bracket-corners bracket-corners-bottom mt-6" style="overflow-x: hidden;">
+    <article class="grid-cell bracket-corners bracket-corners-bottom mt-6 min-w-0 overflow-hidden">
       <!-- Metadata -->
       <div class="mb-6 border-b border-black pb-4">
         <p class="section-label mb-1">PUBLISHED {formattedDate}</p>
@@ -25,7 +25,7 @@ const formattedDate = new Date(pubDate).toISOString().split('T')[0];
       </div>
 
       <!-- Content -->
-      <div class="prose-brutal">
+      <div class="prose-brutal min-w-0">
         <slot />
       </div>
     </article>
@@ -89,13 +89,13 @@ const formattedDate = new Date(pubDate).toISOString().split('T')[0];
     text-decoration: none;
   }
   .prose-brutal :global(table) {
-    width: 100%;
     border-collapse: collapse;
     margin: 1rem 0;
     font-size: 12px;
     display: block;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    max-width: 100%;
   }
   .prose-brutal :global(th),
   .prose-brutal :global(td) {
