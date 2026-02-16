@@ -26,6 +26,7 @@ body {
   font-size: 14px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
 
 ::selection {
@@ -45,6 +46,7 @@ pre.astro-code {
   overflow-x: auto;
   font-size: 13px;
   line-height: 1.5;
+  max-width: 100%;
 }
 
 code {
