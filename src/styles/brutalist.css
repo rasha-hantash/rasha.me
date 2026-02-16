@@ -16,7 +16,7 @@
   background-color: rgba(255, 69, 0, 0.06);
 }
 
-/* Bracket Corners */
+/* Bracket Corners — hidden on mobile, shown on sm+ */
 .bracket-corners {
   position: relative;
 }
@@ -30,6 +30,7 @@
   border-color: var(--accent);
   border-style: solid;
   pointer-events: none;
+  display: none;
 }
 
 .bracket-corners::before {
@@ -57,6 +58,7 @@
   border-color: var(--accent);
   border-style: solid;
   pointer-events: none;
+  display: none;
 }
 
 .bracket-corners-bottom::before {
@@ -69,6 +71,15 @@
   bottom: -1px;
   right: -1px;
   border-width: 0 2px 2px 0;
+}
+
+@media (min-width: 640px) {
+  .bracket-corners::before,
+  .bracket-corners::after,
+  .bracket-corners-bottom::before,
+  .bracket-corners-bottom::after {
+    display: block;
+  }
 }
 
 /* Crosshair Marker */
