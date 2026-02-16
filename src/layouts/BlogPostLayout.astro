@@ -8,13 +8,13 @@ const formattedDate = new Date(pubDate).toISOString().split('T')[0];
 ---
 <BaseLayout title={`${title} | Rasha Hantash`} description={description}>
   <Nav />
-  <div class="max-w-3xl mx-auto px-4 py-12">
+  <div class="max-w-3xl mx-auto px-2 sm:px-4 py-8 sm:py-12 w-full min-w-0 overflow-hidden">
 
-    <article class="grid-cell bracket-corners bracket-corners-bottom mt-6">
+    <article class="grid-cell bracket-corners bracket-corners-bottom mt-6 min-w-0 overflow-hidden">
       <!-- Metadata -->
       <div class="mb-6 border-b border-black pb-4">
         <p class="section-label mb-1">PUBLISHED {formattedDate}</p>
-        <h1 class="text-2xl font-bold uppercase tracking-wide">{title}</h1>
+        <h1 class="text-lg sm:text-2xl font-bold uppercase tracking-wide">{title}</h1>
         {tags.length > 0 && (
           <div class="flex flex-wrap gap-2 mt-3">
             {tags.map((tag: string) => (
@@ -25,7 +25,7 @@ const formattedDate = new Date(pubDate).toISOString().split('T')[0];
       </div>
 
       <!-- Content -->
-      <div class="prose-brutal">
+      <div class="prose-brutal min-w-0">
         <slot />
       </div>
     </article>
@@ -68,8 +68,9 @@ const formattedDate = new Date(pubDate).toISOString().split('T')[0];
   .prose-brutal :global(code:not(pre code)) {
     background-color: rgba(0, 0, 0, 0.08);
     padding: 2px 6px;
-    font-size: 13px;
+    font-size: 12px;
     border: 1px solid rgba(0, 0, 0, 0.15);
+    word-break: break-all;
   }
   .prose-brutal :global(blockquote) {
     border-left: 3px solid var(--accent);
@@ -88,18 +89,31 @@ const formattedDate = new Date(pubDate).toISOString().split('T')[0];
     text-decoration: none;
   }
   .prose-brutal :global(table) {
-    width: 100%;
     border-collapse: collapse;
     margin: 1rem 0;
+    font-size: 12px;
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
   }
   .prose-brutal :global(th),
   .prose-brutal :global(td) {
-    padding: 0.5rem 1rem;
+    padding: 0.35rem 0.5rem;
     border: 1px solid rgba(0, 0, 0, 0.2);
     text-align: left;
   }
   .prose-brutal :global(th) {
     font-weight: 700;
     background-color: rgba(0, 0, 0, 0.05);
+  }
+  @media (min-width: 640px) {
+    .prose-brutal :global(table) {
+      font-size: 14px;
+    }
+    .prose-brutal :global(th),
+    .prose-brutal :global(td) {
+      padding: 0.5rem 1rem;
+    }
   }
 </style>

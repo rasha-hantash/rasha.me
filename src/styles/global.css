@@ -17,6 +17,7 @@
 
 html {
   scroll-behavior: smooth;
+  overflow-x: hidden;
 }
 
 body {
@@ -26,6 +27,9 @@ body {
   font-size: 14px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
 }
 
 ::selection {
@@ -45,6 +49,13 @@ pre.astro-code {
   overflow-x: auto;
   font-size: 13px;
   line-height: 1.5;
+  max-width: calc(100vw - 2rem);
+}
+
+@media (min-width: 640px) {
+  pre.astro-code {
+    max-width: 100%;
+  }
 }
 
 code {

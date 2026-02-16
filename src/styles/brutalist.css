@@ -1,9 +1,15 @@
 /* Grid Cell */
 .grid-cell {
   border: 1px solid var(--border);
-  padding: 1.5rem;
+  padding: 0.75rem;
   position: relative;
   transition: background-color 0.15s ease;
+}
+
+@media (min-width: 640px) {
+  .grid-cell {
+    padding: 1.5rem;
+  }
 }
 
 .grid-cell:hover {
