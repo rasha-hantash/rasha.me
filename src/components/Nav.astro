@@ -1,0 +1,30 @@
+---
+const sections = [
+  { name: 'PROJECTS', id: 'projects' },
+  { name: 'RESUME', id: 'resume' },
+  { name: 'HACKATHONS', id: 'hackathons' },
+];
+---
+<nav class="border-b border-black bg-concrete sticky top-0 z-50 px-4 py-3">
+  <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
+    <div class="flex flex-wrap items-center gap-1">
+      <a href="/" class="btn-brutal text-[10px] py-1 px-3">HOME</a>
+      {sections.map((s) => (
+        <a
+          href={`/#${s.id}`}
+          class="btn-brutal text-[10px] py-1 px-3"
+        >
+          {s.name}
+        </a>
+      ))}
+      <a href="/blog" class="btn-brutal text-[10px] py-1 px-3">
+        BLOG
+      </a>
+    </div>
+    <div class="flex items-center gap-1">
+      <a href="mailto:rasha.hantash@protonmail.com" class="btn-brutal text-[10px] py-1 px-3" target="_blank" rel="noopener noreferrer">EMAIL</a>
+      <a href="https://github.com/rasha-hantash" class="btn-brutal text-[10px] py-1 px-3" target="_blank" rel="noopener noreferrer">GITHUB</a>
+      <a href="https://linkedin.com/in/rasha-hantash" class="btn-brutal text-[10px] py-1 px-3" target="_blank" rel="noopener noreferrer">LINKEDIN</a>
+    </div>
+  </div>
+</nav>

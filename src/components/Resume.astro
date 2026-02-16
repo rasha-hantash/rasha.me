@@ -1,0 +1,31 @@
+---
+import ExperienceCard from './ExperienceCard.astro';
+import { experiences } from '../data/experiences';
+---
+<div class="grid-cell" id="resume">
+  <div class="flex items-center justify-between mb-1">
+    <div>
+      <p class="section-label">RECORDS // EMPLOYMENT</p>
+      <h2 class="section-title mb-0">Resume</h2>
+    </div>
+    <a
+      href="https://docs.google.com/document/d/1r_bDJYLVunh54HHHIPG7D_BdggmAb1HoWkIBILibFWQ/edit?usp=sharing"
+      target="_blank"
+      rel="noopener noreferrer"
+      class="btn-brutal text-[10px] flex items-center gap-1"
+    >
+      &nearr; VIEW RESUME
+    </a>
+  </div>
+  <div>
+    {experiences.map((exp) => (
+      <ExperienceCard
+        title={exp.title}
+        company={exp.company}
+        stack={exp.stack}
+        duration={exp.duration}
+        accomplishments={exp.accomplishments}
+      />
+    ))}
+  </div>
+</div>

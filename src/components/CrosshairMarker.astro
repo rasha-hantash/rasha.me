@@ -1,0 +1,15 @@
+---
+interface Props {
+  position?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+}
+
+const posMap = {
+  'top-left': 'top-[-6px] left-[-6px]',
+  'top-right': 'top-[-6px] right-[-6px]',
+  'bottom-left': 'bottom-[-6px] left-[-6px]',
+  'bottom-right': 'bottom-[-6px] right-[-6px]',
+};
+
+const { position = 'top-left' } = Astro.props;
+---
+<span class={`crosshair ${posMap[position]}`}></span>

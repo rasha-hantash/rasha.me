@@ -1,0 +1,75 @@
+export const experiences = [
+  {
+    title: 'Founding Engineer',
+    company: 'Zingage',
+    stack: 'TYPESCRIPT / REACT / NESTJS / LANGGRAPH',
+    duration: 'January 2025 - June 2025',
+    accomplishments: [
+      'Diagnosed and resolved difficult-to-reproduce bugs in WellSky EMR integration affecting hundreds of customers through structured logging and monitoring, eliminating silent failures and reducing support tickets by 1/3rd',
+      'Delivered high-impact Communities feature for homecare caregivers directly leading to the company\'s largest contract to date ($100k ACV vs. $5k average), deployed to dozens of other customers',
+      'Improved platform stability by reducing core Reward Product failures from weekly to monthly occurrences through systematic debugging and code improvements',
+      'Streamlined developer onboarding by rewriting comprehensive documentation, reducing new engineer ramp-up time from 1 month to 1 week',
+    ],
+  },
+  {
+    title: 'Software Engineer',
+    company: 'Anterior',
+    stack: 'GOLANG / TYPESCRIPT / CDKTF / TERRAFORM',
+    duration: 'November 2024 - January 2025',
+    accomplishments: [
+      'Redesigned healthcare guidelines bot into a scalable ETL pipeline using Golang, processing and storing 10k+ medical guidelines daily in S3',
+      'Established foundation for advanced analytics and reduced external API dependencies',
+    ],
+  },
+  {
+    title: 'Co-founder & CTO',
+    company: 'ClaimClam',
+    stack: 'NEXTJS / TAILWINDCSS / GO / TF / AWS',
+    duration: 'January 2023 - June 2024',
+    accomplishments: [
+      'Built payment infrastructure processing $1.2M+ in claims with double-entry ledger system',
+      'Scaled platform from Airtable to Aurora, supporting 45k users and 8-figure settlements',
+      'Led technical evaluation of payment processors, optimizing for scale and cost efficiency',
+      'Raised $1.95M across two rounds ($450K angel, $1.5M pre-seed) within 6 months',
+      'Managed 3-person engineering team, implementing CI/CD and agile workflows',
+      'Developed MVP that processed 30k JUUL claims ($3.01M) in six weeks',
+    ],
+  },
+  {
+    title: 'Platform Engineer',
+    company: 'Quantum Metric',
+    stack: 'GOLANG / K8S',
+    duration: 'October 2021 - February 2023',
+    accomplishments: [
+      'Architected real-time anomaly detection system with email notifications via K8s cronjobs',
+      'Implemented OpenTelemetry instrumentation across gRPC microservices fleet',
+      'Built high-performance session analytics API with Redis caching',
+      'Standardized local development environment for platform engineering team',
+      'Developed user feedback collection pipeline integrated with BigQuery',
+    ],
+  },
+  {
+    title: 'Software Engineer',
+    company: 'Oort',
+    stack: 'GOLANG / GCP',
+    duration: 'January 2021 - August 2021',
+    accomplishments: [
+      'Designed analytics pipeline using Kafka, Fluentd, and BigQuery',
+      'Built automated CI/CD workflow for containerized microservices',
+      'Implemented K8s deployments via Terraform',
+      'Developed real-time data transformation service in Go',
+    ],
+  },
+  {
+    title: 'Software Engineer',
+    company: 'Best Execution Solutions',
+    stack: 'PYTHON / AWS',
+    duration: 'July 2020 - January 2021',
+    accomplishments: [
+      'Optimized market data processing by 80% through Go migration',
+      'Reduced 28k record processing time by 50% using optimized algorithms',
+      'Built customer-facing validation system using Django and Knockout.js',
+      'Deployed and managed production infrastructure on AWS EC2',
+    ],
+  },
+];

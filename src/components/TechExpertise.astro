@@ -1,0 +1,19 @@
+---
+import FauxGauge from './FauxGauge.astro';
+import { skills } from '../data/skills';
+---
+<div class="grid-cell h-full">
+  <p class="section-label">DIAGNOSTICS // CAPABILITIES</p>
+  <h2 class="section-title">Technical Expertise</h2>
+  <div class="space-y-3">
+    {skills.map((skill) => (
+      <div>
+        <div class="flex justify-between items-center mb-1">
+          <span class="text-[11px] uppercase tracking-wider">{skill.name}</span>
+          <span class="text-[10px] text-accent">{skill.level}/10</span>
+        </div>
+        <FauxGauge level={skill.level} />
+      </div>
+    ))}
+  </div>
+</div>
