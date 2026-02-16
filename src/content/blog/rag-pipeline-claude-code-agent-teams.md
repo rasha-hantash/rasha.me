@@ -122,7 +122,7 @@ Use gt create for this branch.
 
 **Fixed-size chunking** tends to win on recall for needle-in-a-haystack queries — where the answer is a single sentence buried in a document. Because every chunk overlaps with its neighbors, the relevant sentence appears in at least one chunk (often two). But it tends to lose on answer quality for complex questions, because the LLM receives fragments instead of complete thoughts.
 
-**Semantic chunking** tends to win on coherence and answer quality. When the LLM gets a complete paragraph as context, it produces better-sourced, more precise answers. But if your paragraphs are very long (1500+ characters), important details might get buried in a large chunk that the embedding model can't represent well — embedding quality degrades as text length increases.
+**Semantic chunking** tends to win on coherence and answer quality. When the LLM gets a complete paragraph as context, it produces better-sourced, more precise answers. But if your paragraphs are very long (1500+ characters), important details might get buried in a large chunk that the embedding model can't represent well — longer chunks produce embeddings that average over more content, making it harder for any single detail to drive retrieval.
 
 Watch for: retrieval precision (are the right chunks being found?), answer faithfulness (is the LLM hallucinating because it got a fragment instead of a complete passage?), and chunk count per query (are you using more chunks than necessary because they're too small?).
 
@@ -184,6 +184,7 @@ Add BM25 hybrid search to the retrieval pipeline.
 Database change: Add a search_vector tsvector column to the chunks table,
 generated always from content using to_tsvector('english', content), with a
 GIN index. This is a zero-ingestion-change — PostgreSQL auto-populates it.
+Note: the generated column approach means you can't preprocess text (e.g., stripping markdown or special characters) before indexing — if your documents have non-standard characters that degrade BM25 quality, consider a trigger-based approach instead.
 
 New methods on PgVectorStore:
 - _bm25_search(query, top_k): full-text search using plainto_tsquery and
@@ -207,7 +208,7 @@ Let's make this concrete. Imagine a small corpus of 10 chunks and the query: **"
 **With cosine similarity only (top_k=5):**
 
 | Rank | Chunk | Cosine |
-|------|-------|--------|
+|:-----|:------|:-------|
 | 1 | C1 — JWT refresh token rotation | 0.82 |
 | 2 | C2 — OAuth2 token lifecycle | 0.71 |
 | 3 | C3 — Microservice auth with mTLS | 0.58 |
@@ -216,12 +217,14 @@ Let's make this concrete. Imagine a small corpus of 10 chunks and the query: **"
 
 C4 (session management in monoliths) squeaks in at rank 5. It's semantically adjacent but not useful. Meanwhile, C8 (token bucket algorithm) didn't make the cut at cosine 0.29.
 
+<br>
+
 **With hybrid search (cosine + BM25 + RRF):**
 
 BM25 produces its own ranking based on keyword matches:
 
 | Rank | Chunk | BM25 |
-|------|-------|------|
+|:-----|:------|:-----|
 | 1 | C1 — JWT refresh token rotation | 12.4 |
 | 2 | C10 — gRPC interceptors for auth | 9.8 |
 | 3 | C3 — Microservice auth with mTLS | 7.2 |
@@ -230,10 +233,12 @@ BM25 produces its own ranking based on keyword matches:
 
 C8 shows up because it literally contains the word "token." C10 jumped to rank 2 because it contains "auth" — BM25 catches lexical matches the embedding model underweighted.
 
-RRF fuses both lists with `1 / (60 + rank)`:
+<br>
+
+**RRF fuses both lists with `1 / (60 + rank)`:**
 
 | Chunk | Vector Rank | Keyword Rank | RRF Score |
-|-------|------------|-------------|-----------|
+|:------|:------------|:-------------|:----------|
 | C1 | 1 | 1 | 1/61 + 1/61 = **0.0328** |
 | C10 | 4 | 2 | 1/64 + 1/62 = **0.0318** |
 | C3 | 3 | 3 | 1/63 + 1/63 = **0.0317** |
@@ -243,6 +248,7 @@ RRF fuses both lists with `1 / (60 + rank)`:
 
 C4 and C8 are naturally suppressed — they only appeared in one list, so they get roughly half the RRF score. No threshold tuning needed. C10 jumped from vector rank 4 to fused rank 2 because it's strong in both modalities.
 
+    
 ### What to look for in your evals
 
 Hybrid search almost always improves retrieval quality over pure cosine. The question is by how much, and whether the added complexity is worth it for your use case.
@@ -267,7 +273,7 @@ Retrieval (whether cosine or hybrid) produces a ranked list using embedding geom
 
 **Cohere reranker** (`rerank-v3.5`) is an API call. You send the query and candidate passages, get back relevance scores. It's the most accurate option — Cohere's model is trained on massive relevance datasets. But it adds 200-400ms of latency and a per-call cost.
 
-**Local cross-encoder** (`cross-encoder/ms-marco-MiniLM-L-6-v2` from sentence-transformers) runs on your machine. It scores (query, passage) pairs locally. Adds ~50-150ms with a GPU, more on CPU. No API key, no cost after model download. Less accurate than Cohere but significantly faster.
+**Local cross-encoder** (`cross-encoder/ms-marco-MiniLM-L-6-v2` from sentence-transformers) runs on your machine. It scores (query, passage) pairs locally. Adds ~50-150ms with a GPU, more on CPU. No API key, no cost after model download. Less accurate than Cohere but significantly faster. Note that this model is trained on MS MARCO (web search passages) — for domain-specific retrieval like legal documents, a fine-tuned or domain-trained model may perform better.
 
 Both rerankers use the same interface — the retriever over-fetches 4x candidates (fetch_k = top_k * 4) to give the reranker a large pool, then cuts back to top_k after reranking.
 
@@ -301,7 +307,7 @@ Use gt create for this branch.
 Taking the RRF output from [the example in Strategy 3](#a-worked-example-how-strategies-diverge), here's what the reranker does:
 
 | Chunk | RRF Rank | Reranker Score | Final Rank |
-|-------|---------|---------------|-----------|
+|:------|:---------|:---------------|:----------|
 | C1 — JWT refresh token rotation | 1 | 0.94 | **1** |
 | C2 — OAuth2 token lifecycle in distributed systems | 4 | 0.88 | **2** |
 | C10 — gRPC interceptors for auth propagation | 2 | 0.72 | **3** |
@@ -327,9 +333,9 @@ The embedding model determines the quality of your vector representations — an
 
 ### What each model does
 
-**text-embedding-3-small** (1536 dimensions) is OpenAI's compact embedding model. It's fast, cheap ($0.02 per million tokens), and produces good-quality embeddings for most use cases. For straightforward text where the semantic relationships are clear — "securities fraud" matching "legal violations" — it works well.
+**text-embedding-3-small** (1536 dimensions) is OpenAI's compact embedding model. It's fast, cheap ($0.02 per million tokens as of February 2026 — <a href="https://openai.com/api/pricing/" target="_blank">check current pricing</a>), and produces good-quality embeddings for most use cases. For straightforward text where the semantic relationships are clear — "securities fraud" matching "legal violations" — it works well.
 
-**text-embedding-3-large** (3072 dimensions) is the higher-fidelity model. It captures finer-grained semantic distinctions — subtle differences in legal terminology, technical jargon, or domain-specific language that the small model might blur together. It costs 6.5x more ($0.13 per million tokens) and produces vectors twice the size, which means double the storage in pgvector and slightly slower similarity searches.
+**text-embedding-3-large** (3072 dimensions) is the higher-fidelity model. It captures finer-grained semantic distinctions — subtle differences in legal terminology, technical jargon, or domain-specific language that the small model might blur together. It costs roughly 6.5x more ($0.13 per million tokens as of February 2026) and produces vectors twice the size, which means double the storage in pgvector and slightly slower similarity searches.
 
 ### The prompt
 
@@ -349,7 +355,7 @@ Use gt create for this branch.
 
 ### What to look for in your evals
 
-This requires re-ingesting your entire corpus — embeddings change with the model, so you can't compare retrieval results against the same stored chunks. Ingest once with each model, then run your eval suite against both.
+Switching models isn't a runtime toggle — it requires a new migration to alter the vector column dimension and re-ingesting your entire corpus, since embeddings change with the model. You can't compare retrieval results against the same stored chunks. Ingest once with each model, then run your eval suite against both.
 
 **text-embedding-3-large** tends to improve retrieval precision on domain-specific queries where the vocabulary is specialized. Legal documents, medical records, and technical specifications benefit most — the larger model captures subtle distinctions (e.g., "breach of fiduciary duty" vs. "breach of contract") that the small model might conflate.
 
@@ -386,7 +392,7 @@ This pipeline uses top_k=5 as a default. With the reranker's 4x over-fetch, 20 c
 Here's a summary of what to test and what each variant optimizes for:
 
 | Axis | Variant A | Variant B | Trade-off |
-|------|-----------|-----------|-----------|
+|:-----|:----------|:----------|:----------|
 | Chunking | Fixed-size (1000/200) | Semantic (paragraphs) | Recall vs. coherence |
 | PDF Parsing | PyMuPDF (local) | Reducto (cloud API) | Cost/speed vs. layout quality |
 | Retrieval | Cosine similarity | Hybrid (cosine+BM25+RRF) | Simplicity vs. recall |

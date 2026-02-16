@@ -87,4 +87,19 @@ const formattedDate = new Date(pubDate).toISOString().split('T')[0];
     color: #000;
     text-decoration: none;
   }
+  .prose-brutal :global(table) {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+  }
+  .prose-brutal :global(th),
+  .prose-brutal :global(td) {
+    padding: 0.5rem 1rem;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    text-align: left;
+  }
+  .prose-brutal :global(th) {
+    font-weight: 700;
+    background-color: rgba(0, 0, 0, 0.05);
+  }
 </style>
