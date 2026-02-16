@@ -255,7 +255,7 @@ Hybrid search almost always improves retrieval quality over pure cosine. The que
 
 Watch for: recall on queries with exact terminology (case numbers, legal citations, proper nouns — BM25 catches these), precision on semantic queries (hybrid shouldn't degrade what cosine already does well), and latency (hybrid runs two searches, though the BM25 query is fast with a GIN index).
 
-The `k=60` in RRF comes from the <a href="https://dl.acm.org/doi/10.1145/1571941.1572114" target="_blank">original paper (Cormack et al., 2009)</a>. High k compresses rank differences — being rank 1 vs. rank 5 barely matters, which is what you want when fusing two systems that measure fundamentally different things. Most production implementations (including Elasticsearch's) just use 60.
+The `k=60` in RRF comes from the <a href="https://cormack.uwaterloo.ca/cormacksigir09-rrf.pdf" target="_blank">original paper (Cormack et al., 2009)</a>. High k compresses rank differences — being rank 1 vs. rank 5 barely matters, which is what you want when fusing two systems that measure fundamentally different things. Most production implementations (including Elasticsearch's) just use 60.
 
 ### A note on cosine thresholds
 
