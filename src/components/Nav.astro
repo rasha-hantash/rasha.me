@@ -1,6 +1,5 @@
 ---
 const sections = [
-  { name: 'ABOUT', id: 'about' },
   { name: 'PROJECTS', id: 'projects' },
   { name: 'RESUME', id: 'resume' },
   { name: 'HACKATHONS', id: 'hackathons' },
@@ -9,6 +8,7 @@ const sections = [
 <nav class="border-b border-black bg-concrete sticky top-0 z-50 px-4 py-3">
   <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
     <div class="flex flex-wrap items-center gap-1">
+      <a href="/" class="btn-brutal text-[10px] py-1 px-3">HOME</a>
       {sections.map((s) => (
         <a
           href={`/#${s.id}`}

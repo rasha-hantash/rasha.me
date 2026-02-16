@@ -1,25 +1,22 @@
 ---
 interface Props {
   title: string;
-  stack: string;
-  event: string;
-  details: string[];
+  status: string;
+  description: string;
+  tags: string[];
 }
 
-const { title, stack, event, details } = Astro.props;
+const { title, status, description, tags } = Astro.props;
 ---
-<div class="grid-cell group hover:bg-black hover:text-white transition-colors">
-  <div class="flex items-baseline justify-between mb-2">
-    <h3 class="text-sm font-bold uppercase tracking-wide group-hover:text-accent transition-colors">{title}</h3>
-    <span class="tag group-hover:border-accent">{stack}</span>
+<div class="grid-cell group transition-colors">
+  <div class="flex items-baseline justify-between gap-2 mb-3">
+    <h3 class="text-sm font-bold uppercase tracking-wide">{title}</h3>
+    <span class="text-[10px] font-bold uppercase tracking-wider text-accent whitespace-nowrap">{status}</span>
   </div>
-  <p class="text-[11px] uppercase tracking-wider opacity-50 mb-2">{event}</p>
-  <ul class="space-y-1">
-    {details.map((d) => (
-      <li class="text-sm pl-4 relative">
-        <span class="absolute left-0 text-accent">&gt;</span>
-        {d}
-      </li>
+  <p class="text-sm mb-4">{description}</p>
+  <div class="flex flex-wrap gap-1">
+    {tags.map((tag) => (
+      <span class="tag">{tag}</span>
     ))}
-  </ul>
+  </div>
 </div>

@@ -10,11 +10,11 @@ You've built a RAG pipeline. It works. PDFs go in, answers come out. But is it t
 
 The only way to know is to test it. Swap one component, run your eval suite, compare the results.
 
-The problem is that building each variant takes time. Different chunking strategies, different retrieval methods, different reranking backends — each one touches multiple files across parsing, storage, retrieval, and generation. That's where the workflow comes in: one prompt to a Claude Code agent team produces a working variant. [Graphite](https://graphite.dev) stacks each variant as a separate, reviewable PR — so you can compare isolated diffs instead of untangling one massive branch. You run your evals against each branch, compare the numbers, and merge the winner.
+The problem is that building each variant takes time. Different chunking strategies, different retrieval methods, different reranking backends — each one touches multiple files across parsing, storage, retrieval, and generation. That's where the workflow comes in: one prompt to a Claude Code agent team produces a working variant. <a href="https://graphite.dev" target="_blank">Graphite</a> stacks each variant as a separate, reviewable PR — so you can compare isolated diffs instead of untangling one massive branch. You run your evals against each branch, compare the numbers, and merge the winner.
 
 This article walks through six axes of variation in a RAG pipeline, gives you the prompt to build each variant, and explains what to look for in your eval results. The codebase is a document Q&A system over legal PDFs — pgvector, FastAPI, React frontend with bounding box highlights — but the strategies generalize to any RAG system.
 
-[Here's the repo](https://github.com/rasha-hantash/pdf-classaction-rag) if you want to skip ahead.
+<a href="https://github.com/rasha-hantash/pdf-classaction-rag" target="_blank">Here's the repo</a> if you want to skip ahead.
 
 ---
 
@@ -34,11 +34,14 @@ PR 1: Infrastructure + data models — docker-compose with pgvector,
       database migrations (documents + chunks tables with vector(1536)),
       PgVectorStore class with cosine similarity search using <=>.
 
-PR 2: Ingestion pipeline — PyMuPDF PDF parsing with OCR fallback for
-      scanned pages, semantic chunking (split by paragraph boundaries,
-      merge small paragraphs, fixed-size fallback for large blocks),
-      OpenAI embedding generation with token-based batching and retry logic,
-      batch upload with ThreadPoolExecutor.
+PR 2: Ingestion pipeline — PyMuPDF PDF parsing with Tesseract OCR
+      fallback for scanned pages (detect low text content per page,
+      render to pixmap, run pytesseract.image_to_string), garbage text
+      detection for corrupted font encodings. Semantic chunking (split
+      by paragraph boundaries, merge small paragraphs, fixed-size
+      fallback for large blocks). OpenAI embedding generation with
+      token-based batching and retry logic, batch upload with
+      ThreadPoolExecutor.
 
 PR 3: Retrieval + API — embed query -> cosine similarity search ->
       top_k results -> build context -> Claude generates answer with source
@@ -76,6 +79,14 @@ CREATE TABLE chunks (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 ```
+
+---
+
+## Measuring the Difference: Offline Evals
+
+None of these strategy changes matter if you can't measure the impact. You need an offline, reference-based eval suite — a set of questions with known answers that you run against each variant. Compare retrieval precision, recall, and answer faithfulness across branches. The variant with better scores wins.
+
+I'll be writing a full article on building an eval framework for RAG pipelines. In the meantime, <a href="https://www.youtube.com/watch?v=a3SMraZWNNs" target="_blank">this video</a> is a good starting point for thinking about evals.
 
 ---
 
@@ -238,7 +249,7 @@ Hybrid search almost always improves retrieval quality over pure cosine. The que
 
 Watch for: recall on queries with exact terminology (case numbers, legal citations, proper nouns — BM25 catches these), precision on semantic queries (hybrid shouldn't degrade what cosine already does well), and latency (hybrid runs two searches, though the BM25 query is fast with a GIN index).
 
-The `k=60` in RRF comes from the [original paper (Cormack et al., 2009)](https://dl.acm.org/doi/10.1145/1571941.1572114). High k compresses rank differences — being rank 1 vs. rank 5 barely matters, which is what you want when fusing two systems that measure fundamentally different things. Most production implementations (including Elasticsearch's) just use 60.
+The `k=60` in RRF comes from the <a href="https://dl.acm.org/doi/10.1145/1571941.1572114" target="_blank">original paper (Cormack et al., 2009)</a>. High k compresses rank differences — being rank 1 vs. rank 5 barely matters, which is what you want when fusing two systems that measure fundamentally different things. Most production implementations (including Elasticsearch's) just use 60.
 
 ### A note on cosine thresholds
 
@@ -382,42 +393,9 @@ Here's a summary of what to test and what each variant optimizes for:
 | Reranking | None | Cohere API | Speed/cost vs. precision |
 | Reranking | None | Local cross-encoder | Speed vs. precision |
 | Embedding Model | text-embedding-3-small | text-embedding-3-large | Cost/speed vs. fidelity |
-| top_k | 3 | 5 / 8 | Focus vs. coverage |
+| top_k | 3 | 5 - 8 | Focus vs. coverage |
 
 You don't need to test every combination. Start with retrieval strategy (cosine vs. hybrid) — that's usually the highest-impact change. Then add reranking to your best retrieval variant. Then tune chunking, embedding model, and top_k.
-
----
-
-## Measuring the Difference: Offline Evals
-
-Each strategy change only matters if you can measure its impact. The way to do that is with an offline, reference-based eval suite — a set of questions with known answers that you run against each variant.
-
-The basic structure:
-
-1. A JSON file of test cases: query, expected answer, and optionally the source passages or documents the answer should come from.
-2. A script that runs each query against your pipeline, compares the retrieved chunks and generated answer to the reference, and scores them.
-3. Metrics: retrieval precision (did you find the right chunks?), recall (did you miss any?), answer faithfulness (does the generated answer match the reference without hallucination?).
-
-```json
-[
-  {
-    "query": "What is the filing date of the complaint?",
-    "expected_answer": "The complaint was filed on March 15, 2024.",
-    "expected_source_passages": ["Filed: March 15, 2024, United States District Court"],
-    "source_document": "complaint.pdf"
-  },
-  {
-    "query": "What damages are the plaintiffs seeking?",
-    "expected_answer": "The plaintiffs are seeking compensatory damages...",
-    "expected_source_passages": ["Plaintiffs seek compensatory damages in excess of..."],
-    "source_document": "complaint.pdf"
-  }
-]
-```
-
-You run this suite against each branch — cosine vs. hybrid, no reranker vs. Cohere, small vs. large embeddings — and compare the aggregate scores. The variant with higher retrieval precision and answer faithfulness wins.
-
-Even 20-30 well-chosen test cases will tell you which strategy changes actually improve your answers and which ones just add complexity. I'm writing a dedicated article on building a complete offline eval framework for RAG pipelines — reference-based scoring, retrieval metrics, and how to catch regressions as your pipeline evolves.
 
 ---
 
@@ -501,4 +479,4 @@ The workflow — CLAUDE.md for consistency, one prompt per variant, Graphite for
 
 If you're building your first RAG system and this feels like a lot of moving parts: start with the baseline. Get cosine similarity working. Then add one variant at a time and watch how your eval numbers change. The worked example above shows the mechanics — the intuition comes from seeing it on your own data.
 
-[Full repo here.](https://github.com/rasha-hantash/pdf-classaction-rag)
+<a href="https://github.com/rasha-hantash/pdf-classaction-rag" target="_blank">Full repo here.</a>
