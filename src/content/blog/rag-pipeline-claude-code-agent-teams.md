@@ -1,7 +1,7 @@
 ---
 title: "A/B Testing Your RAG Pipeline: Chunking, Retrieval, and Reranking Strategies You Can Build With One Prompt Each"
 pubDate: 2026-02-16
-description: "How to quickly build and compare RAG pipeline variants — cosine vs. hybrid search, fixed vs. semantic chunking, Cohere vs. cross-encoder reranking — using Claude Code agent teams, Graphite stacks, and your own offline evals."
+description: "How to quickly build and compare RAG pipeline variants — cosine vs. hybrid search, fixed vs. semantic chunking, Cohere vs. cross-encoder reranking — using Claude Code, Graphite stacks, and your own offline evals."
 tags: ["rag", "claude-code", "ai-agents", "graphite", "evaluation"]
 draft: false
 ---
@@ -10,7 +10,7 @@ You've built a RAG pipeline. It works. PDFs go in, answers come out. But is it t
 
 The only way to know is to test it. Swap one component, run your eval suite, compare the results.
 
-The problem is that building each variant takes time. Different chunking strategies, different retrieval methods, different reranking backends — each one touches multiple files across parsing, storage, retrieval, and generation. That's where the workflow comes in: one prompt to a Claude Code agent team produces a working variant. <a href="https://graphite.dev" target="_blank">Graphite</a> stacks each variant as a separate, reviewable PR — so you can compare isolated diffs instead of untangling one massive branch. You run your evals against each branch, compare the numbers, and merge the winner.
+The problem is that building each variant takes time. Different chunking strategies, different retrieval methods, different reranking backends — each one touches multiple files across parsing, storage, retrieval, and generation. That's where the workflow comes in: I used Claude Code agent teams to build the baseline RAG system — the full four-PR stack with infrastructure, ingestion, retrieval, and frontend. Once the baseline exists, each variant is just one prompt to Claude Code, stacked as a separate PR with <a href="https://graphite.dev" target="_blank">Graphite</a> — so you're comparing clean diffs instead of untangling one massive branch. Run your evals against each branch, compare the numbers, merge the winner.
 
 This article walks through six axes of variation in a RAG pipeline, gives you the prompt to build each variant, and explains what to look for in your eval results. The codebase is a document Q&A system over legal PDFs — pgvector, FastAPI, React frontend with bounding box highlights — but the strategies generalize to any RAG system.
 
@@ -20,7 +20,7 @@ This article walks through six axes of variation in a RAG pipeline, gives you th
 
 ## The Baseline: What You're Comparing Against
 
-Every comparison needs a baseline. Here's the prompt that builds the foundation — a working RAG pipeline with the simplest retrieval strategy (pure cosine similarity, semantic chunking, no reranking):
+Every comparison needs a baseline. Here's the prompt I gave a Claude Code agent team to build the foundation — a working RAG pipeline with the simplest retrieval strategy (pure cosine similarity, semantic chunking, no reranking). Agent teams are worth it here because the baseline touches everything: infrastructure, ingestion, retrieval, and frontend across four PRs.
 
 ```
 Build a RAG pipeline for querying PDF documents. Use Graphite (gt) to stack
@@ -481,7 +481,7 @@ Ingest your test corpus once per configuration that changes chunking, parsing, o
 
 The value isn't in any single strategy — it's in being able to test them against your actual documents and queries. Every RAG pipeline is different because every corpus is different. Legal PDFs with precise terminology benefit more from BM25 than a corpus of conversational support tickets. A small collection of well-structured documents might not need reranking at all. You won't know until you measure.
 
-The workflow — CLAUDE.md for consistency, one prompt per variant, Graphite for clean PRs — exists to make testing cheap. When building a variant takes an hour instead of a day, you actually do it instead of shipping your first guess.
+The workflow — Claude Code teams for the baseline, one prompt per variant, Graphite for clean PRs — exists to make testing cheap. When building a variant takes a prompt instead of a day, you actually do it instead of shipping your first guess.
 
 If you're building your first RAG system and this feels like a lot of moving parts: start with the baseline. Get cosine similarity working. Then add one variant at a time and watch how your eval numbers change. The worked example above shows the mechanics — the intuition comes from seeing it on your own data.
 
