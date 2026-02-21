@@ -63,7 +63,7 @@ Hallucination is structural, not a bug to be patched. It persists partly because
 
 In long-form, source-grounded writing, four failure modes layer on top:
 
-**Context dilution.** As document length grows, source documents lose salience and the model falls back on parametric memory ([Lost in the Middle, Liu et al., 2023](https://arxiv.org/abs/2307.03172)). Sources that informed Section 2 may be invisible by Section 8. The same dilution applies to instructions — "only use provided sources" loses effective weight over long outputs. Primary driver of A1 and A2.
+**Context dilution.** Models struggle to use information buried in the middle of long input contexts. [Liu et al. (2023)](https://arxiv.org/abs/2307.03172) found that performance is highest when relevant information appears at the beginning or end of the context, and degrades significantly when it's in the middle — even for models explicitly designed for long contexts. This means the order and length of the source material you feed the model matters: important sources placed in the middle of a long context may effectively be ignored. Worth noting: the skeleton itself can grow long for a 20-page document — the prose rendering step is susceptible to this same problem.
 
 **No persistent claim state.** The model generates token-by-token with no explicit memory of prior assertions unless the system provides it externally. Direct cause of A3.
 
@@ -165,7 +165,7 @@ The inline judge (Stage 4) runs on every claim in real time. We can't have human
 The inline judge logs a confidence score alongside each verdict. These scores don't change the inline judge's behavior — it makes a hard call and moves on. Instead, they direct the offline pipeline: when sampling production outputs for evaluation, the system prioritizes the verdicts where the inline judge was least confident, checking the weakest calls first rather than sampling randomly.
 
 
-**CI/CD quality gate.**
+**CI/CD pipeline.**
 
 Any change to the model, prompts, or retrieval logic runs the full eval suite before deploy. If scores drop, the change is blocked — same pattern as a failing test suite. The gate runs per-domain: a change that improves research reports but makes legal docs worse doesn't pass.
 
@@ -202,7 +202,7 @@ The system has seven stages. Stages 1–5 run in the live path; Stages 6–7 are
 
 **Stage 6 — Intra-Document Consistency Check (v3).** Operates on the full verified skeleton to detect A3 failures. Builds a structured representation of key terms across sections, flagging definitional drift and cross-section contradictions. Deferred because it requires whole-document reasoning, justified only once foundation stages are proven.
 
-**Stage 7 — Offline LLM Judge and CI/CD Quality Gate.** The second judge role — this one runs offline against sampled production outputs, not in the live path. Uses the same four-class schema as Stage 4, but serves a different purpose: measuring system-level accuracy over time rather than making per-claim decisions in real time. This is the judge that feeds the CI/CD quality gate and gets calibrated against human labels.
+**Stage 7 — Offline LLM Judge and CI/CD Pipeline.** The second judge role — this one runs offline against sampled production outputs, not in the live path. Uses the same four-class schema as Stage 4, but serves a different purpose: measuring system-level accuracy over time rather than making per-claim decisions in real time. This is the judge that feeds the CI/CD pipeline and gets calibrated against human labels.
 
 ---
 
@@ -214,11 +214,17 @@ The architecture assumes that constraining generation to a verified skeleton mea
 
 ### Alternatives Considered
 
-**Generate-then-verify on full prose.** Generate the full document with retrieval-augmented context, then verify afterward. Simpler pipeline (one generation pass, one verification pass) and no leakage risk since there's no intermediate representation. The trade-off: verification on free-form prose is harder — claims are buried in rhetoric and compound sentences, so claim extraction introduces its own errors before verification even starts. The skeleton approach trades this extraction problem for the leakage problem. If leakage proves hard to control, this may have been the better bet — Week 2 validation is designed to test that.
+**Annotated prose generation.** Skip the skeleton. Generate full prose directly, but ask the model to tag each claim inline with its source citation as it writes. You get natural document flow *and* structured claim-citation pairs you can extract and verify — without needing a separate claim-extraction step. Three trade-offs worth noting:
 
-**Chunked generation with per-section verification.** Generate and verify one section at a time, feeding verified sections as context for the next. Attacks context dilution directly without the skeleton abstraction, preserves natural writing flow, and carries no leakage risk. The skeleton's advantage is that verification operates on clean structured inputs rather than prose — but only if the prose rendering step is well-behaved. If Week 2 shows high leakage rates, chunked generation becomes the fallback.
+- **No pre-prose checkpoint.** The skeleton lets you inspect the factual plan before spending tokens on prose. Here, you generate first, verify after. If many claims fail verification, the generation call was wasted.
+- **Silent gaps.** The model might make a claim and not annotate it. Unannotated claims skip verification entirely. A "find missing annotations" pass helps, but that's partly the claim-extraction problem again.
+- **Dual-task pressure.** The model writes prose and produces structured annotations in the same call. Splitting those into separate steps (the skeleton approach) may let each step be done better.
 
-**Constrained decoding / grounding-aware generation.** Force the model to only produce text traceable to source material — prevent hallucination at the point of writing rather than catching it afterward. Requires direct access to model weights (it intervenes in token probability distributions before each word is chosen, which API-based models don't expose). The deeper problem: not every sentence *should* be traceable to a source. [Research shows](https://arxiv.org/abs/2404.07060) 25–50% of sentences in well-formed long-form answers are inherently ungrounded (transitions, framing, analysis). Constrained decoding can't distinguish a factual claim from "this matters because..." — applying it broadly ruins the writing, and applying it selectively is as hard as the original verification problem.
+None of these are dealbreakers — the silent-gaps problem is the same shape as the skeleton's [leakage risk](#open-questions). This is a serious contender worth testing alongside the skeleton approach.
+
+**Chunked prose rendering.** Same verified skeleton, but instead of rendering the full document in one LLM call, render one section at a time. Each call gets a focused input — one section of the skeleton plus its sources — so the model stays grounded and context dilution is less of a concern. The trade-off is more LLM calls (one per section), higher latency, and the model doesn't see the full document while writing each section, so cross-section flow may feel disjointed. If Week 2 shows that rendering the full skeleton at once causes quality problems, chunked rendering becomes the fallback.
+
+**Narrative-aware skeleton.** Push coherence upstream into the skeleton itself. Right now the skeleton is a factual structure — claims organized by section with evidence links — and the prose renderer is responsible for narrative flow. The alternative: make skeleton generation explicitly produce a narrative blueprint, with claims ordered by rhetorical function (setup → evidence → synthesis → implication) and lightweight transition hints between sections. This makes chunked rendering more viable, since each section already knows where it sits in the narrative arc and doesn't need full-document context to sound coherent. The trade-off is that skeleton generation becomes a harder task — the LLM has to consider both factual grounding and rhetorical structure in one call — and narrative quality is harder to verify mechanically than evidence links.
 
 ---
 
@@ -228,7 +234,17 @@ The architecture assumes that constraining generation to a verified skeleton mea
 
 *Sacrificing:* latency and cost. The live pipeline has three sequential LLM calls (skeleton → support check → prose), and total wait time is uncertain per document. Acceptable because users are waiting for a verified document, not a fast stream of consciousness.
 
-*Model selection:* Skeleton generation is structured and constrained — doesn't need a frontier model. Prose rendering does, because writing quality and professional register matter. Which models clear the bar is empirical.
+*Model selection — API vs. self-hosted:* Not every stage needs a frontier model. Skeleton generation is structured and constrained; the LLM judge is a classification task. Both are strong candidates for open-source models. Prose rendering is the opposite — writing quality and professional register matter, and frontier models (GPT-4o, Claude Opus, Gemini Ultra) are generally API-only. You can't download and run them yourself. Which models clear the bar at each stage is empirical.
+
+At 10,000 users the API-vs-self-hosted question becomes material. Three factors drive the decision:
+
+- **Rate limits.** API providers cap requests per minute. OpenAI's GPT-4o, for example, allows 500 RPM at Tier 1 and tops out at 10,000 RPM at Tier 5. A multi-stage pipeline multiplies the request volume per user, so these ceilings matter at scale.
+- **Latency.** Every API call is a network call. Self-hosted models cut out that round trip, giving you more predictable response times.
+- **Cost curve.** API pricing is per-token and scales linearly — 10× the users means 10× the cost. Self-hosted has high fixed costs but lower marginal cost per request, so at enough volume the economics flip.
+
+The fixed costs of self-hosting are real. You need infrastructure engineers to set up and maintain inference servers, optimize the model for your hardware, scale capacity to match demand, and build guardrails that API providers give you out of the box. That's non-trivial time, talent, and ongoing operational burden. But once the infrastructure is running, each additional request costs only compute — no per-token markup, no rate limit negotiation.
+
+The practical answer is often a hybrid: use API models where you need frontier quality (prose rendering) and self-host where a capable open-source model clears the bar (judge, skeleton generation). This caps your API costs at the stages that actually need it.
 
 *Cost drivers:* LLM judge and prose rendering. The judge scales with claim volume; prose rendering scales with output length. Primary levers: model selection per stage, batching judge calls, and scoping support checking narrowly.
 
@@ -262,7 +278,7 @@ Pull 30–50 real outputs across document types as the annotation set. Two annot
 
 ### Open Questions
 
-**Skeleton-to-prose leakage.** The residual hallucination surface where prose elaborates beyond the skeleton hasn't been sized. This is the biggest technical risk (see Core Bet above).
+**Skeleton-to-prose leakage.** The prose generated from the skeleton may still hallucinate claims that weren't mapped back to the skeleton. How often this happens hasn't been measured yet. This is the biggest uncertainty in the architecture (see Core Bet above).
 
 **Claim volume distribution.** Cost and latency estimates depend on how many verifiable claims a typical document contains. The 300-claim figure is a working assumption, not a measured baseline. Week 1 establishes this.
 
