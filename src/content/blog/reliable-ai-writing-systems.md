@@ -112,15 +112,23 @@ Triggered whenever the model, prompts, or retrieval logic changes.
 
 ### Success Criteria
 
-**Phase 1 — Baseline:** Measure hallucination rate per claim, per document, and per domain on a real sample.
+**Phase 1 — Baseline (Week 1–2).** Annotate a stratified sample (≥100 claims across ≥10 documents, split by domain) and measure: hallucination rate per claim, per document, and per domain; the distribution of failures across A1 vs. A2; and inter-annotator agreement (with a κ gate before any downstream metrics are trusted — the specific threshold depends on annotation complexity, but agreement must be high enough that disagreements are noise, not signal). This phase produces three things: the base rates that all targets are set against, the variance estimates that define what "statistically meaningful" means for regression detection, and the first calibration of the LLM judge against human labels.
 
-**Phase 2 — Targets:** Set thresholds relative to baseline. The specific numbers come from the data, not from guessing upfront.
+**Phase 2 — Detection Targets (relative to baseline).** Targets are set per hallucination type because A1 and A2 have fundamentally different detection profiles:
+- *A1 (uncited claims):* Coverage checking is deterministic, so recall should approach 100%. Optimize for precision — the acceptable precision threshold comes from Phase 1 data.
+- *A2 (unsupported citations):* This is where the system earns its keep. The tension is between recall (catching bad citations) and precision (not flooding reviewers with false flags). Which matters more depends on Phase 1 base rates: if A2 errors are rare, precision dominates because most flags will be noise; if they're common, recall dominates because missed errors compound. Set targets after seeing the data.
+- *Combined:* F1 computed separately for A1 and A2, not averaged together — a system that's perfect on A1 and useless on A2 shouldn't look like it's passing.
 
-**Regression:** A meaningful drop in F1 after any model/prompt/retrieval change. "Meaningful" gets defined once variance is known from Phase 1.
+**CI/CD Quality Gate.** Any change to the model, prompts, or retrieval logic runs the full eval suite before deploy. If it fails, the change is blocked — the same pattern as a failing test suite in CI. The gate runs per-domain: a change that improves research reports but regresses on legal docs doesn't pass.
 
-**Ongoing:** Re-validate LLM judge alignment with human labels quarterly and after major model changes.
+When F1 drops, there are three possible explanations, and they require different responses:
+- *The system actually regressed* — the change made things worse. Real problem; block the deploy.
+- *The LLM judge drifted* — the measurement changed, not the system. Measurement problem; recalibrate the judge before trusting any metrics.
+- *The human labels were noisy* — the benchmark itself is unreliable. Benchmark problem; bounded by the κ gate from Phase 1, but doesn't go to zero.
 
-"Solved" doesn't mean zero hallucinations. It means the system catches the failures that matter most, at thresholds grounded in real data, with infrastructure to notice when things get worse.
+To disambiguate: check judge-human agreement *separately* from system F1. If judge-human agreement is stable but F1 drops beyond a variance-derived threshold (the exact multiple of σ is set during baselining based on the observed score distribution and acceptable false-alarm rate), that's a real regression — block the deploy. If judge-human agreement itself drops, the judge has drifted — recalibrate it against the human-labeled set before trusting any system metrics. Judge recalibration runs quarterly and after any major model swap; the threshold for "meaningful drift" uses the same variance-based approach, with Phase 1 calibration providing both the expected agreement level and the noise around it.
+
+"Solved" doesn't mean zero hallucinations. It means: A1 detection is near-deterministic, A2 recall is strong enough (per Phase 1 targets) that missed errors are the exception, the CI/CD quality gate catches regressions before they deploy, and all of this holds per-domain — not just in aggregate.
 
 ---
 
@@ -142,7 +150,7 @@ The system has seven stages. Stages 1–5 run in the live path; Stages 6–7 are
 
 **Stage 6 — Intra-Document Consistency Check (v3).** Operates on the full verified skeleton to detect A3 failures. Builds a structured representation of key terms across sections, flagging definitional drift and cross-section contradictions. Deferred because it requires whole-document reasoning, justified only once foundation stages are proven.
 
-**Stage 7 — Offline LLM Judge and Regression Detection.** Runs the LLM judge against sampled production outputs using the same four-class schema. Separate from the live pipeline.
+**Stage 7 — Offline LLM Judge and CI/CD Quality Gate.** Runs the LLM judge against sampled production outputs using the same four-class schema. Separate from the live pipeline.
 
 ---
 
@@ -205,5 +213,7 @@ Pull 30–50 real outputs across document types as the annotation set. Two annot
 **Claim volume distribution.** Cost and latency estimates depend on how many verifiable claims a typical document contains. The 300-claim figure is a working assumption, not a measured baseline. Week 1 establishes this.
 
 **Priority ordering.** The roadmap assumes A1 and A2 are the failures users care most about. Week 1 user flagging data could reveal that incoherence across sections (A3) is the real pain point — in which case A3 detection moves up and the v2/v3 sequencing changes. The phasing is a prior, not a commitment.
+
+**False negatives from citation generation failures.** The system cuts claims that lack citations, but some of those claims are perfectly supportable — the LLM just failed to produce the citation. This conflates two different problems: the claim being wrong and the citation step being incomplete. How aggressively should the system attempt retrieval-based recovery before dropping an uncited claim, and what's the cost/latency tradeoff of a second-pass citation search?
 
 **Compound claim handling.** The four-class schema assumes atomic claims, but generated text frequently bundles multiple assertions into a single sentence with one citation. The judge behavior on partial support within compound claims is undefined — this needs explicit annotation guidelines before v2 ships.Example: "Revenue grew 22% and churn fell 18% (Source A)" — what if Source A only supports the revenue figure?
