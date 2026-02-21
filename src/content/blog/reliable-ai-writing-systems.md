@@ -85,7 +85,7 @@ Support is measured on a four-class schema:
 - **Contradicts** — the source says the opposite or the claim materially misrepresents it.
 - **Irrelevant** — the citation has no meaningful bearing on the claim.
 
-Claims classified as "partially supports" aren't hallucinations — they're confidence downgrades. The system weakens the assertion language rather than flagging or dropping the claim.
+Claims classified as "partially supports" pass through — the citation is directionally correct. Stage 5 (prose rendering) uses this label to downgrade assertion language — e.g., "suggests" instead of "determined." The offline pipeline evaluates whether "partial" was too generous.
 
 ---
 
@@ -122,23 +122,54 @@ Triggered whenever the model, prompts, or retrieval logic changes.
 
 ### Success Criteria
 
-**Phase 1 — Baseline (Week 1–2).** Annotate a stratified sample (≥100 claims across ≥10 documents, split by domain) and measure: hallucination rate per claim, per document, and per domain; the distribution of failures across A1 vs. A2; and inter-annotator agreement (with a κ gate before any downstream metrics are trusted — the specific threshold depends on annotation complexity, but agreement must be high enough that disagreements are noise, not signal). This phase produces three things: the base rates that all targets are set against, the variance estimates that define what "statistically meaningful" means for regression detection, and the first calibration of the LLM judge against human labels.
+**What success looks like.** Two things must be true for every document the system produces:
 
-**Phase 2 — Detection Targets (relative to baseline).** Targets are set per hallucination type because A1 and A2 have fundamentally different detection profiles:
-- *A1 (uncited claims):* Coverage checking is deterministic, so recall should approach 100%. Optimize for precision — the acceptable precision threshold comes from Phase 1 data.
-- *A2 (unsupported citations):* This is where the system earns its keep. The tension is between recall (catching bad citations) and precision (not flooding reviewers with false flags). Which matters more depends on Phase 1 base rates: if A2 errors are rare, precision dominates because most flags will be noise; if they're common, recall dominates because missed errors compound. Set targets after seeing the data.
-- *Combined:* F1 computed separately for A1 and A2, not averaged together — a system that's perfect on A1 and useless on A2 shouldn't look like it's passing.
+1. Every factual claim has a citation. No unsourced assertions.
+2. Every citation actually supports the claim it's attached to. No fake or irrelevant references.
 
-**CI/CD Quality Gate.** Any change to the model, prompts, or retrieval logic runs the full eval suite before deploy. If it fails, the change is blocked — the same pattern as a failing test suite in CI. The gate runs per-domain: a change that improves research reports but regresses on legal docs doesn't pass.
+The first is easy to check — deterministic unit tests can verify that every claim has a citation attached, no model judgment needed. The second requires an LLM to read the claim, read the cited source, and decide whether they match. That judgment happens twice in the system: once in real time (the inline judge, Stage 4) and once offline (the offline judge, Stage 7). Each needs its own success measure.
 
-When F1 drops, there are three possible explanations, and they require different responses:
-- *The system actually regressed* — the change made things worse. Real problem; block the deploy.
-- *The LLM judge drifted* — the measurement changed, not the system. Measurement problem; recalibrate the judge before trusting any metrics.
-- *The human labels were noisy* — the benchmark itself is unreliable. Benchmark problem; bounded by the κ gate from Phase 1, but doesn't go to zero.
+**Measuring the offline judge: alignment with human annotators.**
 
-To disambiguate: check judge-human agreement *separately* from system F1. If judge-human agreement is stable but F1 drops beyond a variance-derived threshold (the exact multiple of σ is set during baselining based on the observed score distribution and acceptable false-alarm rate), that's a real regression — block the deploy. If judge-human agreement itself drops, the judge has drifted — recalibrate it against the human-labeled set before trusting any system metrics. Judge recalibration runs quarterly and after any major model swap; the threshold for "meaningful drift" uses the same variance-based approach, with Phase 1 calibration providing both the expected agreement level and the noise around it.
+Before trusting any automated metric, we need to know the offline judge agrees with humans. Phase 1 (Weeks 1–2) establishes this:
 
-"Solved" doesn't mean zero hallucinations. It means: A1 detection is near-deterministic, A2 recall is strong enough (per Phase 1 targets) that missed errors are the exception, the CI/CD quality gate catches regressions before they deploy, and all of this holds per-domain — not just in aggregate.
+- Two human annotators independently label the same sample — at least 100 claims across 10+ documents, split by domain.
+- We measure how often the annotators agree with each other using Cohen's Kappa (κ). If the humans can't agree (κ < 0.75), the labeling guidelines are too ambiguous and nothing downstream can be trusted.
+- Once humans agree, we run the offline judge on the same sample and compare its labels to the human labels. This tells us: how often does the judge catch bad citations (recall), and how often are its flags real problems vs. false alarms (precision).
+- These numbers become the baseline. Every future change to the system is measured against them.
+
+When the offline judge's own confidence on a verdict is low, that verdict gets sent to human annotators for verification rather than being trusted as evaluation data. The offline judge is recalibrated against fresh human labels quarterly and after any major model swap. If judge-human agreement drops, we fix the judge before trusting any system metrics.
+
+**Measuring the inline judge: accuracy in production.**
+
+The inline judge (Stage 4) runs on every claim in real time. We can't have humans review every production document, so we measure it indirectly:
+
+- Sample production outputs regularly and run them through the offline evaluation pipeline — the same human-calibrated process described above.
+- Compare what the inline judge decided (pass or drop) against what the offline pipeline says should have happened.
+- Track the disagreement rate. If the inline judge is passing claims that the offline pipeline flags as unsupported, that's the gap to close.
+
+The inline judge logs a confidence score alongside each verdict. These scores don't change the inline judge's behavior — it makes a hard call and moves on. Instead, they direct the offline pipeline: when sampling production outputs for evaluation, the system prioritizes the verdicts where the inline judge was least confident, checking the weakest calls first rather than sampling randomly.
+
+**Detection targets by failure type.**
+
+Targets are set separately for each hallucination type because they're detected differently:
+
+- *A1 (missing citations):* Detection is deterministic — no citation means automatic flag. The system catches these at close to 100%. The only question is precision: how often does a "missing citation" flag point to a real problem vs. a claim that genuinely doesn't need one? The acceptable threshold comes from Phase 1 data.
+- *A2 (wrong citations):* This is the hard one and where the system earns its keep. The trade-off: catch more bad citations (higher recall) vs. don't flood reviewers with false flags (higher precision). Which matters more depends on how common A2 errors turn out to be — if they're rare, most flags are noise and precision matters more; if they're common, missed errors compound and recall matters more. Targets are set after Phase 1 baselining, not before.
+- Scores are computed separately for A1 and A2. A system that's perfect on easy detection (A1) and useless on hard detection (A2) shouldn't look like it's passing.
+
+**CI/CD quality gate.**
+
+Any change to the model, prompts, or retrieval logic runs the full eval suite before deploy. If scores drop, the change is blocked — same pattern as a failing test suite. The gate runs per-domain: a change that improves research reports but makes legal docs worse doesn't pass.
+
+When scores drop, there are three possible causes:
+- *The system actually got worse.* Real regression — block the deploy.
+- *The offline judge drifted.* The measurement changed, not the system. Recalibrate the judge before trusting any metrics.
+- *The human labels were noisy.* The benchmark itself is unreliable. Bounded by the κ gate from Phase 1, but never fully eliminated.
+
+How to tell which: check judge-human agreement separately from system scores. If the judge still agrees with humans but system scores dropped, the system really regressed — block the deploy. If judge-human agreement itself dropped, the judge drifted — fix that first.
+
+**What "solved" means.** Not zero hallucinations. It means: every claim is cited, bad citations are caught reliably, regressions are blocked before they deploy, and all of this holds per domain — not just in aggregate.
 
 ---
 
@@ -154,13 +185,13 @@ The system has seven stages. Stages 1–5 run in the live path; Stages 6–7 are
 
 **Stage 3 — Deterministic Coverage Check.** Every claim checked for citation presence. No model call needed. Claims with no citation are dropped. Catches all A1 failures at zero cost.
 
-**Stage 4 — Support Checking (v2).** For every cited claim, an LLM validates the (claim, evidence) pair against the four-class schema defined in the rubric. All checks run in parallel. Claims that "entail" pass through; "partially supports" claims get confidence language downgraded ("demonstrates" → "suggests"); "contradicts" or "irrelevant" claims are dropped. No repair loop — each claim is checked and handled once. For judge reliability: each verdict includes a confidence score (derived from logprobs). High-confidence verdicts are trusted; low-confidence verdicts are flagged for human review rather than auto-resolved — the same escalation pattern used in content moderation systems. This bounds the judge's own error rate without requiring it to be perfect.
+**Stage 4 — Inline Support Checking (v2).** The first of two LLM-as-judge roles in the system — this one runs in the live path on every claim before the user sees anything. For every cited claim, an LLM validates the (claim, evidence) pair against the four-class schema defined in the rubric. All checks run in parallel. The inline judge's action is binary: "entails" or "partially supports" → pass; "contradicts" or "irrelevant" → drop. The four-class label is preserved in the skeleton so Stage 5 can use it to calibrate assertion language. Each verdict includes a confidence score (derived from logprobs); these scores don't change the inline judge's behavior — it makes a hard call and moves on. Instead, they're logged alongside each verdict to direct the offline pipeline: when sampling production outputs for evaluation, the system prioritizes the verdicts where the inline judge was least confident. Currently, dropped claims are discarded. In future iterations, the system could attempt repair — finding a better citation or reformulating the claim — rather than silently removing it.
 
-**Stage 5 — Prose Rendering.** The verified skeleton is rendered into long-form text. The prompt constrains strictly: expand claims into fluent prose, introduce no new factual assertions, preserve citation tags, respect confidence language from Stage 4.
+**Stage 5 — Prose Rendering.** The verified skeleton is rendered into long-form text. Stage 5 reads the four-class label from the skeleton — claims labeled "entails" get confident language, claims labeled "partially supports" get downgraded language ("suggests" instead of "determined"). No new factual assertions introduced, citation tags preserved.
 
 **Stage 6 — Intra-Document Consistency Check (v3).** Operates on the full verified skeleton to detect A3 failures. Builds a structured representation of key terms across sections, flagging definitional drift and cross-section contradictions. Deferred because it requires whole-document reasoning, justified only once foundation stages are proven.
 
-**Stage 7 — Offline LLM Judge and CI/CD Quality Gate.** Runs the LLM judge against sampled production outputs using the same four-class schema. Separate from the live pipeline.
+**Stage 7 — Offline LLM Judge and CI/CD Quality Gate.** The second judge role — this one runs offline against sampled production outputs, not in the live path. Uses the same four-class schema as Stage 4, but serves a different purpose: measuring system-level accuracy over time rather than making per-claim decisions in real time. This is the judge that feeds the CI/CD quality gate and gets calibrated against human labels.
 
 ---
 
@@ -232,4 +263,4 @@ Pull 30–50 real outputs across document types as the annotation set. Two annot
 
 **User feedback as a signal for improvement.** The system generates verification judgments at scale, but users also generate signal — editing flagged claims, restoring dropped claims, reporting errors the system missed. These patterns are a natural source of labeled data for judge calibration, retrieval quality monitoring, and annotation prioritization. The feedback loop isn't designed yet: what's captured, how it's stored, and how it flows back into evaluation and retraining are open design questions.
 
-**UX and transparency at 10K users.** The system drops uncited claims and downgrades confidence language, but users currently have no visibility into *why*. Open questions: Do users see what was dropped and why? Can they override the system (restore a dropped claim, escalate a flagged citation)? Does transparency improve trust or create noise? At 10K users across different domains and risk tolerances, a single UX may not fit — a legal analyst may want full audit trails while a content writer may want clean output with minimal friction. How the system surfaces its decisions, and how much control users have over verification strictness, shapes adoption as much as detection accuracy does.
+**UX and transparency at 10K users.** The system drops unsupported claims and downgrades language for partially supported ones, but users currently have no visibility into *why*. Open questions: Do users see what was dropped and why? Can they override the system (restore a dropped claim, escalate a flagged citation)? Does transparency improve trust or create noise? At 10K users across different domains and risk tolerances, a single UX may not fit — a legal analyst may want full audit trails while a content writer may want clean output with minimal friction. How the system surfaces its decisions, and how much control users have over verification strictness, shapes adoption as much as detection accuracy does.
