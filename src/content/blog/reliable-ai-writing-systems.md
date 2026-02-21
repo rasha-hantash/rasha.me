@@ -152,7 +152,7 @@ Before trusting any automated metric, we need to know the offline judge agrees w
 - Once humans agree, we run the offline judge on the same sample and compare its labels to the human labels. This tells us: how often does the judge catch bad citations (recall), and how often are its flags real problems vs. false alarms (precision).
 - These numbers become the baseline. Every future change to the system is measured against them.
 
-When the offline judge's own confidence on a verdict is low, that verdict gets sent to human annotators for verification rather than being trusted as evaluation data. The offline judge is recalibrated against fresh human labels quarterly and after any major model swap. If judge-human agreement drops, we fix the judge before trusting any system metrics.
+When the offline judge's own confidence on a verdict is low, that verdict gets sent to human annotators for verification rather than being trusted as evaluation data. The offline judge is recalibrated against fresh human labels ad hoc — when something feels off — and after any major model swap. If judge-human agreement drops, we fix the judge before trusting any system metrics.
 
 **Measuring the inline judge: accuracy in production.**
 
@@ -167,14 +167,18 @@ The inline judge logs a confidence score alongside each verdict. These scores do
 
 **CI/CD pipeline.**
 
-Any change to the model, prompts, or retrieval logic runs the full eval suite before deploy. If scores drop, the change is blocked — same pattern as a failing test suite. The gate runs per-domain: a change that improves research reports but makes legal docs worse doesn't pass.
+The CI/CD gate measures system-level quality using three scores: precision, recall, and F1 — computed by running the full pipeline on a benchmark set of documents with human-labeled ground truth, then comparing the system's pass/drop decisions against those labels.
 
-When scores drop, there are three possible causes:
-- *The system actually got worse.* Real regression — block the deploy.
-- *The offline judge drifted.* The measurement changed, not the system. Recalibrate the judge before trusting any metrics.
-- *The human labels were noisy.* The benchmark itself is unreliable. Bounded by the κ gate from Phase 1, but never fully eliminated.
+- **Recall** — of all the bad citations in the benchmark, how many did the system catch? This is the most important score. A missed bad citation reaches the user looking verified.
+- **Precision** — when the system flags a citation as bad, is it actually bad? Matters as a floor: too many false flags means users get incomplete documents.
+- **F1** — the harmonic mean of precision and recall. A single number for tracking overall health.
 
-How to tell which: check judge-human agreement separately from system scores. If the judge still agrees with humans but system scores dropped, the system really regressed — block the deploy. If judge-human agreement itself dropped, the judge drifted — fix that first.
+Each score has an absolute floor. If any score falls below its floor after a code change, the deploy is blocked — same as a failing test suite. Floors are set per domain: a change that improves research reports but drops legal docs below the floor doesn't pass. The specific floor values aren't set yet — Phase 1 establishes the baseline, and floors are set relative to it.
+
+When a deploy is blocked, there are two things to check:
+
+- **Is the system actually worse?** Check judge-human agreement first. If the offline judge still agrees with humans but system scores dropped, it's a real regression. Fix the system.
+- **Did the judge drift?** If judge-human agreement itself dropped, the measurement changed — not the system. Recalibrate the judge against fresh human labels before trusting any scores. This is also why the judge is recalibrated ad hoc and after any major model swap.
 
 **What "solved" means.** Not zero hallucinations. It means: every claim is cited, bad citations are caught reliably, regressions are blocked before they deploy, and all of this holds per domain — not just in aggregate.
 
