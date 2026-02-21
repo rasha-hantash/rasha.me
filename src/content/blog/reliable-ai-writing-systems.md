@@ -59,11 +59,15 @@ Hallucinations in 5–20 page documents aren't a single failure — they're a cl
 
 ### Root Causes
 
+Hallucination is structural, not a bug to be patched. It persists partly because [current evaluation methods set the wrong incentives](https://openai.com/index/why-language-models-hallucinate/) — most benchmarks measure performance in a way that encourages guessing rather than honesty about uncertainty. These pressures are baked in before the model sees your sources.
+
+In long-form, source-grounded writing, four failure modes layer on top:
+
 **Context dilution.** As document length grows, source documents lose salience and the model falls back on parametric memory ([Lost in the Middle, Liu et al., 2023](https://arxiv.org/abs/2307.03172)). Sources that informed Section 2 may be invisible by Section 8. The same dilution applies to instructions — "only use provided sources" loses effective weight over long outputs. Primary driver of A1 and A2.
 
 **No persistent claim state.** The model generates token-by-token with no explicit memory of prior assertions unless the system provides it externally. Direct cause of A3.
 
-**Fluency pressure.** The model is trained to produce coherent text. When evidence is sparse, it interpolates — generating plausible claims to bridge gaps — because the training objective actively optimizes against gaps being *visible*.
+**Fluency pressure.** When evidence is sparse, the model interpolates — generating plausible claims to bridge gaps. Evaluation incentives make this worse: a confident fabrication scores better than admitting "I don't know."
 
 **Contradictory source material.** When sources conflict, the model's default is to blend them into confident synthesis rather than surface the conflict. Solvable at the system level (detect conflicts pre-generation, surface to user) but left unaddressed it produces A3 failures disguised as confident conclusions.
 
