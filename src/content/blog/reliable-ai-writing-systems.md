@@ -24,6 +24,14 @@ Hallucinations in 5–20 page documents aren't a single failure — they're a cl
 
 > Section 2 defines "active user" as logged in within 30 days. Section 6 treats "active user" as paid subscriber.
 
+**Out of scope for this proposal but worth naming:**
+
+**Reasoning hallucinations.** The citation does support the claim, but the conclusion drawn from multiple valid claims doesn't follow. Each individual source-claim pair checks out; the error is in the logic connecting them. A real failure mode in analytical summaries, but outside the detection framework proposed here.
+
+> *"Revenue grew 22% (Source A) and headcount doubled (Source B), demonstrating that hiring drove growth."* — both citations are correct, but the causal claim isn't supported by either source.
+
+**Hallucinations of omission.** The model selectively ignores key information from sources, producing a document that's technically accurate but misleading by what it leaves out. Particularly dangerous in synthesis tasks where framing matters as much as individual facts.
+
 ---
 
 **Which Matter Most and Why**
@@ -93,7 +101,7 @@ Specific targets aren't set yet — the base hallucination rate isn't known unti
 
 Annotation is harder than it sounds. The annotator must read the claim, read the cited passage, and judge support — genuinely ambiguous at the edges and requiring domain knowledge.
 
-**Agreement gate:** Before using any labeled data as ground truth, two annotators independently label the same sample and measure Cohen's Kappa. The bar is κ ≥ 0.75 before any system metrics are computed. Re-checked whenever guidelines change or a new annotator joins.
+**Agreement threshold:** Before using any labeled data as ground truth, two annotators independently label the same sample and measure Cohen's Kappa. The bar is κ ≥ 0.75 before any system metrics are computed. Re-checked whenever guidelines change or a new annotator joins.
 
 **Scale:** A 20-page document can have hundreds of claims; exhaustive annotation is expensive. The approach is two-tier: a small, carefully human-labeled set as the primary standard, and a larger LLM-as-judge set for broader coverage and regression detection — validated against the human set periodically, not treated as ground truth on its own.
 
@@ -218,4 +226,8 @@ Pull 30–50 real outputs across document types as the annotation set. Two annot
 
 **False negatives from citation generation failures.** The system cuts claims that lack citations, but some of those claims are perfectly supportable — the LLM just failed to produce the citation. This conflates two different problems: the claim being wrong and the citation step being incomplete. How aggressively should the system attempt retrieval-based recovery before dropping an uncited claim, and what's the cost/latency tradeoff of a second-pass citation search?
 
-**Compound claim handling.** The four-class schema assumes atomic claims, but generated text frequently bundles multiple assertions into a single sentence with one citation. The judge behavior on partial support within compound claims is undefined — this needs explicit annotation guidelines before v2 ships.Example: "Revenue grew 22% and churn fell 18% (Source A)" — what if Source A only supports the revenue figure?
+**Compound claim handling.** The four-class schema assumes atomic claims, but generated text frequently bundles multiple assertions into a single sentence with one citation. The judge behavior on partial support within compound claims is undefined — this needs explicit annotation guidelines before v2 ships. Example: "Revenue grew 22% and churn fell 18% (Source A)" — what if Source A only supports the revenue figure?
+
+**User feedback as a signal for improvement.** The system generates verification judgments at scale, but users also generate signal — editing flagged claims, restoring dropped claims, reporting errors the system missed. These patterns are a natural source of labeled data for judge calibration, retrieval quality monitoring, and annotation prioritization. The feedback loop isn't designed yet: what's captured, how it's stored, and how it flows back into evaluation and retraining are open design questions.
+
+**UX and transparency at 10K users.** The system drops uncited claims and downgrades confidence language, but users currently have no visibility into *why*. Open questions: Do users see what was dropped and why? Can they override the system (restore a dropped claim, escalate a flagged citation)? Does transparency improve trust or create noise? At 10K users across different domains and risk tolerances, a single UX may not fit — a legal analyst may want full audit trails while a content writer may want clean output with minimal friction. How the system surfaces its decisions, and how much control users have over verification strictness, shapes adoption as much as detection accuracy does.
