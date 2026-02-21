@@ -85,15 +85,25 @@ Support is measured on a four-class schema:
 - **Contradicts** — the source says the opposite or the claim materially misrepresents it.
 - **Irrelevant** — the citation has no meaningful bearing on the claim.
 
-Claims classified as "partially supports" pass through — the citation is directionally correct. Stage 5 (prose rendering) uses this label to downgrade assertion language — e.g., "suggests" instead of "determined." The offline pipeline evaluates whether "partial" was too generous.
+<span id="partial-support"></span>Claims classified as "partially supports" pass through — the citation is directionally correct. Stage 5 (prose rendering) uses this label to downgrade assertion language — e.g., "suggests" instead of "determined." The offline pipeline evaluates whether "partial" was too generous.
 
 ---
 
 ### The Key Trade-off: Precision vs. Recall
 
-A missed hallucination is worse than a false flag. A user who finds one wrong citation loses trust in the whole document; a false flag is annoying but recoverable. So recall is optimized first, with precision as a floor to avoid detector fatigue.
+The hallucination detector is a binary classifier: for each claim, it decides "valid" or "hallucination." Four metrics describe how well it does that.
 
-Specific targets aren't set yet — the base hallucination rate isn't known until a first annotation pass. Phase 1 of validation exists to establish that baseline. Everything else is set relative to it.
+**Accuracy** — how often the system gets it right overall, whether the claim is valid or a hallucination. Not useful here: the LLM is writing from provided sources, so in a functioning pipeline the large majority of claims are properly supported and hallucinations are the minority class. Consider the degenerate baseline — a system that labels every claim as valid without inspecting it would still score 90%+ accuracy while catching zero hallucinations. Class imbalance makes this metric misleading.
+
+**Recall** — of all actual hallucinations, how many did the system catch? This is the most important metric. A missed hallucination (false negative) reaches the user as a wrong citation that looks verified — one is enough to undermine trust in the whole document.
+
+**Precision** — when the system flags a claim as a hallucination, is it actually one? Important as a floor: if too many valid claims get dropped, users receive incomplete documents and lose trust for a different reason — over-filtering. But a false flag is recoverable; a missed hallucination isn't.
+
+**F1** — the harmonic mean of precision and recall. Useful as a single number for CI/CD gates and regression tracking, but it doesn't capture the asymmetry — we weight recall higher.
+
+Recall is optimized first, with precision maintained as a floor. A missed hallucination is worse than a false flag — always.
+
+Specific targets aren't set yet — the base hallucination rate isn't known until a first annotation pass. Phase 1 of validation exists to establish that baseline. Everything else is set relative to it. Scores are computed separately for A1 and A2 — a system that's perfect on easy detection (A1) and useless on hard detection (A2) shouldn't look like it's passing.
 
 ---
 
@@ -105,7 +115,7 @@ Annotation is harder than it sounds. The annotator must read the claim, read the
 
 **Scale:** A 20-page document can have hundreds of claims; exhaustive annotation is expensive. The approach is two-tier: a small, carefully human-labeled set as the primary standard, and a larger LLM-as-judge set for broader coverage and regression detection — validated against the human set periodically, not treated as ground truth on its own.
 
-**Domain splits:** The benchmark must be split by domain (research reports, technical docs, analytical summaries). A system that looks fine overall can quietly fail on one domain.
+**Domain splits:** The benchmark must be split by use-case (research reports, technical docs, analytical summaries). A system that looks fine overall can quietly fail on one domain.
 
 ---
 
@@ -150,13 +160,6 @@ The inline judge (Stage 4) runs on every claim in real time. We can't have human
 
 The inline judge logs a confidence score alongside each verdict. These scores don't change the inline judge's behavior — it makes a hard call and moves on. Instead, they direct the offline pipeline: when sampling production outputs for evaluation, the system prioritizes the verdicts where the inline judge was least confident, checking the weakest calls first rather than sampling randomly.
 
-**Detection targets by failure type.**
-
-Targets are set separately for each hallucination type because they're detected differently:
-
-- *A1 (missing citations):* Detection is deterministic — no citation means automatic flag. The system catches these at close to 100%. The only question is precision: how often does a "missing citation" flag point to a real problem vs. a claim that genuinely doesn't need one? The acceptable threshold comes from Phase 1 data.
-- *A2 (wrong citations):* This is the hard one and where the system earns its keep. The trade-off: catch more bad citations (higher recall) vs. don't flood reviewers with false flags (higher precision). Which matters more depends on how common A2 errors turn out to be — if they're rare, most flags are noise and precision matters more; if they're common, missed errors compound and recall matters more. Targets are set after Phase 1 baselining, not before.
-- Scores are computed separately for A1 and A2. A system that's perfect on easy detection (A1) and useless on hard detection (A2) shouldn't look like it's passing.
 
 **CI/CD quality gate.**
 
@@ -185,9 +188,13 @@ The system has seven stages. Stages 1–5 run in the live path; Stages 6–7 are
 
 **Stage 3 — Deterministic Coverage Check.** Every claim checked for citation presence. No model call needed. Claims with no citation are dropped. Catches all A1 failures at zero cost.
 
-**Stage 4 — Inline Support Checking (v2).** The first of two LLM-as-judge roles in the system — this one runs in the live path on every claim before the user sees anything. For every cited claim, an LLM validates the (claim, evidence) pair against the four-class schema defined in the rubric. All checks run in parallel. The inline judge's action is binary: "entails" or "partially supports" → pass; "contradicts" or "irrelevant" → drop. The four-class label is preserved in the skeleton so Stage 5 can use it to calibrate assertion language. Each verdict includes a confidence score (derived from logprobs); these scores don't change the inline judge's behavior — it makes a hard call and moves on. Instead, they're logged alongside each verdict to direct the offline pipeline: when sampling production outputs for evaluation, the system prioritizes the verdicts where the inline judge was least confident. Currently, dropped claims are discarded. In future iterations, the system could attempt repair — finding a better citation or reformulating the claim — rather than silently removing it.
+**Stage 4 — Inline Support Checking (v2).** The first of two LLM-as-judge roles in the system — this one runs in the live path on every claim before the user sees anything. For every cited claim, an LLM validates the (claim, evidence) pair against the four-class schema defined in the rubric. All checks run in parallel.
 
-**Stage 5 — Prose Rendering.** The verified skeleton is rendered into long-form text. Stage 5 reads the four-class label from the skeleton — claims labeled "entails" get confident language, claims labeled "partially supports" get downgraded language ("suggests" instead of "determined"). No new factual assertions introduced, citation tags preserved.
+- **Binary action:** "entails" or "partially supports" → pass; "contradicts" or "irrelevant" → drop. The four-class label is preserved in the skeleton so Stage 5 can use it to calibrate assertion language.
+- **Confidence scores:** each verdict includes a score (derived from logprobs), used to [direct the offline evaluation pipeline](#success-criteria) — not to change inline behavior.
+- **No repair loop (yet):** dropped claims are currently discarded. Future iterations could attempt repair — finding a better citation or reformulating the claim — rather than silently removing it.
+
+**Stage 5 — Prose Rendering.** The verified skeleton is rendered into long-form text. The two surviving labels [control assertion language](#partial-support) — "entails" gets confident prose, "partially supports" gets downgraded prose. No new factual assertions introduced, citation tags preserved.
 
 **Stage 6 — Intra-Document Consistency Check (v3).** Operates on the full verified skeleton to detect A3 failures. Builds a structured representation of key terms across sections, flagging definitional drift and cross-section contradictions. Deferred because it requires whole-document reasoning, justified only once foundation stages are proven.
 
