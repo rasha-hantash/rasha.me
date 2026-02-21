@@ -77,6 +77,8 @@ Support is measured on a four-class schema:
 - **Contradicts** — the source says the opposite or the claim materially misrepresents it.
 - **Irrelevant** — the citation has no meaningful bearing on the claim.
 
+Claims classified as "partially supports" aren't hallucinations — they're confidence downgrades. The system weakens the assertion language rather than flagging or dropping the claim.
+
 ---
 
 ### The Key Trade-off: Precision vs. Recall
@@ -138,13 +140,13 @@ To disambiguate: check judge-human agreement *separately* from system F1. If jud
 
 The system has seven stages. Stages 1–5 run in the live path; Stages 6–7 are deferred or offline.
 
-**Stage 1 — Source Indexing.** Source materials are chunked, embedded, and indexed into a per-session vector store. I assume this is done well; the rest of the architecture builds on that assumption.
+**Stage 1 — Source Indexing.** Source materials are chunked, embedded, and indexed into a per-session vector store. The rest of the architecture treats this as a dependency, not a given — poor chunking or retrieval directly increases A2 failures downstream (the model cites the best available chunk, which may not actually support the claim if the right chunk wasn't retrieved). Indexing quality is monitored via Stage 7: if A2 rates spike in a specific domain, retrieval is the first suspect.
 
 **Stage 2 — Skeleton Generation.** The first LLM call produces a structured intermediate: claims organized by section, each with the chunk ID of its supporting evidence. This is the factual skeleton — what will be asserted, where, and why — before any prose. Cheap to generate, easy to inspect, and gives downstream stages clean structured inputs rather than requiring claim extraction from prose.
 
 **Stage 3 — Deterministic Coverage Check.** Every claim checked for citation presence. No model call needed. Claims with no citation are dropped. Catches all A1 failures at zero cost.
 
-**Stage 4 — Support Checking (v2).** For every cited claim, an LLM validates the (claim, evidence) pair against the four-class schema defined in the rubric. All checks run in parallel. Claims that "entail" pass through; "partially supports" claims get confidence language downgraded ("demonstrates" → "suggests"); "contradicts" or "irrelevant" claims are dropped. No repair loop — each claim is checked and handled once.
+**Stage 4 — Support Checking (v2).** For every cited claim, an LLM validates the (claim, evidence) pair against the four-class schema defined in the rubric. All checks run in parallel. Claims that "entail" pass through; "partially supports" claims get confidence language downgraded ("demonstrates" → "suggests"); "contradicts" or "irrelevant" claims are dropped. No repair loop — each claim is checked and handled once. For judge reliability: each verdict includes a confidence score (derived from logprobs). High-confidence verdicts are trusted; low-confidence verdicts are flagged for human review rather than auto-resolved — the same escalation pattern used in content moderation systems. This bounds the judge's own error rate without requiring it to be perfect.
 
 **Stage 5 — Prose Rendering.** The verified skeleton is rendered into long-form text. The prompt constrains strictly: expand claims into fluent prose, introduce no new factual assertions, preserve citation tags, respect confidence language from Stage 4.
 
