@@ -101,26 +101,36 @@ A hallucination is any factual claim that fails either of two tests:
 
 With the [evaluation criteria](#evaluation-criteria) established, the next question is how to measure detection quality.
 
-The hallucination detector is a binary classifier: for each claim, it decides "valid" or "hallucination." Four metrics describe how well it does that.
+The hallucination detector is a binary classifier: for each claim, it labels it `hallucinated` or `not hallucinated`. Four standard metrics describe classifier performance, but they aren't equally useful here.
 
-**Accuracy** — how often the system gets it right overall, whether the claim is valid or a hallucination. Not useful here: the LLM is writing from provided sources, so in a functioning pipeline the large majority of claims are properly supported and hallucinations are the minority class. Consider the degenerate baseline — a system that labels every claim as valid without inspecting it would still score 90%+ accuracy while catching zero hallucinations. Class imbalance makes this metric misleading.
+**Accuracy** is misleading if the classes are unbalanced — and we assume they will be. The LLM is writing from provided sources, so most claims should be properly supported; hallucinations are likely the minority class. We don't know the exact ratio until the first annotation pass, but if hallucinations make up, say, 10% of claims, a system that labels everything `not hallucinated` without checking would still score ~90% accuracy while catching zero hallucinations. The more unbalanced the classes, the less accuracy tells you.
 
-**Recall** — of all actual hallucinations, how many did the system catch? This is the most important metric. A missed hallucination (false negative) reaches the user as a wrong citation that looks verified — one is enough to undermine trust in the whole document.
+**Recall** is the primary metric. Of all actual hallucinations, how many did the system catch? A missed hallucination — a false negative — reaches the user as a wrong citation that looks verified. That's the worst failure mode: it directly undermines trust in the document. Recall is optimized first.
 
-**Precision** — when the system flags a claim as a hallucination, is it actually one? Important as a floor: if too many valid claims get dropped, users receive incomplete documents and lose trust for a different reason — over-filtering. But a false flag is recoverable; a missed hallucination isn't.
+**Precision** is the secondary metric. When the system flags a claim as hallucinated, is it actually hallucinated? If precision is too low, valid claims get dropped and users receive incomplete documents. But a false positive is recoverable — the claim can be reviewed and reinstated. A missed hallucination is not. So precision is maintained as a floor, not the optimization target.
 
-**F1** — the harmonic mean of precision and recall. Useful as a single number for CI/CD gates and regression tracking, but it doesn't capture the asymmetry — we weight recall higher.
+**F1** combines precision and recall into a single score, useful for regression tracking. But it weights both equally — it doesn't capture that we prioritize recall over precision. We track F1, but decisions are made on recall and precision individually.
 
-Recall is optimized first, with precision maintained as a floor. A missed hallucination is worse than a false flag — always.
+#### Where these numbers come from
 
-Specific targets aren't set yet — the base hallucination rate isn't known until a first annotation pass. The validation plan's first phase (Week 1) exists to establish that baseline. Everything else is set relative to it. Scores are computed separately for A1 and A2 — a system that's perfect on easy detection (A1) and useless on hard detection (A2) shouldn't look like it's passing.
+These metrics aren't computed at runtime. The judge labels claims during generation; precision, recall, and F1 are computed separately, during evaluation, by comparing the judge's labels against human-annotated ground truth.
 
-**Directional targets (exact thresholds set after Week 1 baseline):**
+For every claim in a labeled test set, there are four possible outcomes:
 
-- **A1 recall should be near-perfect.** Coverage checking is a structural test — any claim without a citation is caught automatically. Anything less than near-perfect recall here points to a design problem in the skeleton, not a threshold problem.
-- **A2 recall is the harder and more important problem.** The inline judge must catch the large majority of bad citations. This is where most real-world harm comes from — a false citation that looks verified — so the recall bar is set as high as the inline judge's accuracy allows.
-- **Precision has a floor.** Below some threshold, the system drops too many valid claims and users receive incomplete documents.
-- **Per-domain variance must be bounded.** If recall is high on research reports but poor on technical docs, the system is not production-ready for technical docs regardless of the aggregate score. The acceptable gap between domains is set empirically.
+|  | Judge says `hallucinated` | Judge says `not hallucinated` |
+|---|---|---|
+| **Actually hallucinated** | True Positive (TP) — caught it | False Negative (FN) — missed it |
+| **Actually not hallucinated** | False Positive (FP) — false alarm | True Negative (TN) — correctly left alone |
+
+From this:
+
+- **Recall** = TP / (TP + FN). Of the claims that were actually hallucinated, what fraction did the judge catch? If 10 claims are hallucinated and the judge flags 8, recall is 0.80.
+- **Precision** = TP / (TP + FP). Of the claims the judge flagged, what fraction were actually hallucinated? If the judge flags 12 claims but only 8 are real hallucinations, precision is 0.67.
+- **F1** = 2 × (Precision × Recall) / (Precision + Recall). The harmonic mean — it penalizes cases where one metric is high and the other is low. With recall of 0.80 and precision of 0.67, F1 is 0.73.
+
+**What "precision as a floor" means in practice.** We set a minimum acceptable precision — say, 0.80 — and optimize recall as high as possible without dropping below it. This is a constrained optimization: maximize recall, subject to precision ≥ threshold. If a change to the judge prompt improves recall from 0.85 to 0.92 but drops precision from 0.82 to 0.65, we reject it — too many valid claims are being wrongly flagged. If it improves recall to 0.92 while precision stays at 0.80, we take it. The floor is set empirically during calibration, based on what level of false flags is tolerable before documents feel incomplete.
+
+**When this happens.** Phase 1 (Weeks 1–2) of the [validation plan](#success-criteria) is where these numbers are first computed. Human annotators label a test set, the judge runs on the same claims, and a scoring script compares the two — producing the confusion matrix above and the resulting metrics. This is the calibration loop: if recall or precision is off, we iterate on the judge prompt and re-evaluate until the numbers meet the floor.
 
 ### Cost as a Trade-off Lever
 
