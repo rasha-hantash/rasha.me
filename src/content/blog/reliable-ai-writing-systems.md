@@ -83,7 +83,7 @@ A hallucination is any factual claim that fails either of two tests:
 
 **Test 2 — Support:** Does the cited source actually back the claim? A citation that exists but is irrelevant or contradictory is still a hallucination — and the more dangerous kind, because it looks verified.
 
-Support is measured on a four-class schema:
+Support is measured on the following criteria:
 - **Entails** — the cited passage directly and sufficiently supports the claim as stated.
 - **Partially supports** — directionally consistent but incomplete — e.g., a number from a different time period, or a source backing part of a compound claim.
 - **Contradicts** — the source says the opposite or the claim materially misrepresents it.
@@ -123,68 +123,113 @@ Annotation is harder than it sounds. The annotator must read the claim, read the
 
 ---
 
-### Measurement Pipeline (Offline)
-
-1. **Citation linking** — each claim paired with its cited source passage.
-2. **Support checking** — LLM judge classifies each pair against the four-class schema. Catches A2.
-3. **Coverage checking** — deterministic flag for uncited claims. Catches A1.
-4. **Scoring** — system flags compared against human labels → precision, recall, F1.
-
-Triggered whenever the model, prompts, or retrieval logic changes.
-
----
-
 ### Success Criteria
+
+The evaluation criteria above form a [functional correctness](#working-notes-evaluation-methodology-concepts) evaluation — the system is measured by whether it performs its intended function (every claim cited, every citation verified). We split this into:
+
+- **Automatic functional correctness testing**, where the outcome is binary (citation present or not) — the coverage check can verify it deterministically.
+- **Reference-based functional correctness testing**, where the outcome is a judgment call (does the citation actually support the claim?) — we compare the system's verdicts against human-labeled ground truth using precision, recall, and F1.
 
 **What success looks like.** Two things must be true for every document the system produces:
 
-1. Every factual claim has a citation. No unsourced assertions.
-2. Every citation actually supports the claim it's attached to. No fake or irrelevant references.
+1. **Every factual claim has a citation.** The coverage check walks the skeleton and flags any claim without one. Catches A1 failures.
 
-The first is easy to check — deterministic unit tests can verify that every claim has a citation attached, no model judgment needed. The second requires an LLM to read the claim, read the cited source, and decide whether they match. That judgment happens twice in the system: once in real time (the inline judge, Stage 4) and once offline (the offline judge, Stage 7). Each needs its own success measure.
+2. **Every citation actually supports the claim it's attached to.** That judgment happens twice: once in real time and once offline (the offline judge, Stage 7). Each needs its own success measure.
 
 **The offline judge.**
 
-The offline judge does one thing: look at a claim-citation pair and decide "supported" or "not supported." But we use it for two different purposes.
+We'll be using the offline LLM as a judge in the following three ways:
 
-*1. Evaluating the system.* Run the full pipeline on the golden dataset — documents with human-labeled ground truth — and compare the system's pass/drop decisions against the human labels. This gives us precision, recall, and F1: the scores that feed into the CI/CD gate. Every code change is measured this way before it can deploy.
+*0. Calibrating the judge against human annotators.* Before the judge can evaluate anything, we need to know it agrees with humans. Phase 1 (Weeks 1–2) establishes this:
 
-*2. Calibrating the judge itself.* Before trusting those scores, we need to know the judge agrees with humans. Phase 1 (Weeks 1–2) establishes this:
+- *a.* One human annotator labels a sample — at least 100 claims across 10+ documents, split by domain.
+- *b.* We run the offline judge on the same sample and compare its verdicts to the human labels. This tells us how often the judge catches bad citations (recall) and how often its flags are real problems vs. false alarms (precision).
+- *c.* These numbers become the judge's baseline. If alignment is off, we iterate on the prompt — adjusting criteria, adding [few-shot examples](#working-notes-evaluation-methodology-concepts), and re-evaluating using metrics like accuracy, precision, and recall until performance improves.
 
-- Two human annotators independently label the same sample — at least 100 claims across 10+ documents, split by domain.
-- We measure how often the annotators agree with each other using Cohen's Kappa (κ). If the humans can't agree (κ < 0.75), the labeling guidelines are too ambiguous and nothing downstream can be trusted.
-- Once humans agree, we run the offline judge on the same sample and compare its verdicts to the human labels. This tells us how often the judge catches bad citations (recall) and how often its flags are real problems vs. false alarms (precision).
-- These numbers become the judge's baseline. If judge-human agreement drops later, we fix the judge before trusting any system metrics.
+> Eventually, a second annotator labels the same sample independently and we measure inter-annotator agreement using Cohen's Kappa (κ ≥ 0.75).
 
-When the judge's confidence on a verdict is low, that verdict gets sent to human annotators rather than being trusted as evaluation data. The judge is recalibrated against fresh human labels ad hoc — when something feels off — and after any major model swap. Recalibration means updating the judge's rubric and few-shot examples based on where it disagrees with humans.
+**Example judge prompt:**
 
-**Measuring the inline judge: accuracy in production.**
+```
+You are evaluating whether a cited source passage supports a factual claim.
+Classify the relationship as one of:
+- Entails — the passage directly and sufficiently supports the claim.
+- Partially supports — directionally consistent but incomplete.
+- Contradicts — the source says the opposite or materially misrepresents the claim.
+- Irrelevant — the citation has no meaningful bearing on the claim.
 
-The inline judge (Stage 4) runs on every claim in real time. We can't have humans review every production document, so we measure it indirectly:
+Always explain your reasoning before giving a classification.
 
-- Sample production outputs regularly and run them through the offline evaluation pipeline — the same human-calibrated process described above.
-- Compare what the inline judge decided (pass or drop) against what the offline pipeline says should have happened.
-- Track the disagreement rate. If the inline judge is passing claims that the offline pipeline flags as unsupported, that's the gap to close.
+Claim: {claim}
+Cited passage: {passage}
+```
 
-The inline judge logs a confidence score alongside each verdict. These scores don't change the inline judge's behavior — it makes a hard call and moves on. Instead, they direct the offline pipeline: when sampling production outputs for evaluation, the system prioritizes the verdicts where the inline judge was least confident, checking the weakest calls first rather than sampling randomly.
+&nbsp;
+
+*1. Comparing in-app responses against human-labeled reference data.* Run the full pipeline on the golden dataset — documents with human-labeled ground truth — and compare the system's pass/drop decisions against the human labels. Concretely, the pipeline runs four steps:
+
+- *a.* **Citation linking** — each claim paired with its cited source passage.
+- *b.* **Support checking** — the judge classifies each pair against the four-class schema. Catches A2.
+- *c.* **Coverage checking** — deterministic flag for uncited claims. Catches A1.
+- *d.* **Scoring** — system flags compared against human labels → precision, recall, F1.
+
+This gives us the scores that feed into the CI/CD gate.
+
+**Example evaluation prompt:**
+
+```
+You are evaluating whether a cited source passage supports a factual claim.
+Classify the relationship as one of:
+- Entails — the passage directly and sufficiently supports the claim.
+- Partially supports — directionally consistent but incomplete.
+- Contradicts — the source says the opposite or materially misrepresents the claim.
+- Irrelevant — the citation has no meaningful bearing on the claim.
+
+Two evaluators classified the relationship between the claim and the passage.
+
+Claim: {claim}
+Cited passage: {passage}
+
+- Answer 1: {system_verdict}
+- Answer 2: {human_label}
+
+Explain your reasoning, then state which answer is better.
+```
+
+&nbsp;
+
+*2. Judging the quality of in-app LLM responses on their own.* The golden dataset grows slowly — annotators can't label every production output. Reference-free evaluation lets the judge monitor ongoing pipeline quality at production volume without requiring new human labels. Independent of reference data, we evaluate whether each LLM stage in the pipeline is doing its job:
+
+- *a. [Skeleton generation (Stage 2)](#stage-2)* — is the LLM producing claims that are actually grounded in the source chunks it cites?
+- *b. [Inline support checking (Stage 4)](#stage-4)* — is the verification LLM labeling claim-citation pairs correctly (entails / partially supports / contradicts / irrelevant)?
+- *c. [Prose rendering (Stage 5)](#stage-5)* — did the prose stay faithful to the verified skeleton, or did it introduce new unsupported claims?
+
+When the judge's confidence on a verdict is low — measured via [logprobs](#working-notes-evaluation-methodology-concepts) — that verdict gets sent to human annotators rather than being trusted as evaluation data. Recalibration means updating the judge's prompt and [few-shot examples](#working-notes-evaluation-methodology-concepts) based on where it disagrees with humans.
+
+**The inline judge.**
+
+The inline judge checks the skeleton that was just generated. For each cited claim, it checks whether the citation actually supports the claim — labeling the pair as entails, partially supports, contradicts, or irrelevant. "Entails" or "partially supports" passes; "contradicts" or "irrelevant" gets dropped.
+
+The inline judge logs a confidence score ([logprobs](#working-notes-evaluation-methodology-concepts)) alongside each verdict. These scores direct the offline pipeline: when sampling production outputs for evaluation, the system prioritizes the verdicts where the inline judge was least confident, checking the weakest calls first rather than sampling randomly.
 
 
 **CI/CD pipeline.**
 
-The CI/CD gate measures system-level quality using three scores: precision, recall, and F1 — computed by running the full pipeline on a benchmark set of documents with human-labeled ground truth, then comparing the system's pass/drop decisions against those labels.
-
-- **Recall** — of all the bad citations in the benchmark, how many did the system catch? This is the most important score. A missed bad citation reaches the user looking verified.
-- **Precision** — when the system flags a citation as bad, is it actually bad? Matters as a floor: too many false flags means users get incomplete documents.
-- **F1** — the harmonic mean of precision and recall. A single number for tracking overall health.
-
-Each score has an absolute floor. If any score falls below its floor after a code change, the deploy is blocked — same as a failing test suite. Floors are set per domain: a change that improves research reports but drops legal docs below the floor doesn't pass. The specific floor values aren't set yet — Phase 1 establishes the baseline, and floors are set relative to it.
-
-When a deploy is blocked, there are two things to check:
-
-- **Is the system actually worse?** Check judge-human agreement first. If the offline judge still agrees with humans but system scores dropped, it's a real regression. Fix the system.
-- **Did the judge drift?** If judge-human agreement itself dropped, the measurement changed — not the system. Recalibrate the judge against fresh human labels before trusting any scores. This is also why the judge is recalibrated ad hoc and after any major model swap.
+The CI/CD pipeline runs the offline reference-based LLM judge on every deployment. A deployment is blocked when the offline judge has high disagreement with the inline judge that generated the verdicts.
 
 **What "solved" means.** Not zero hallucinations. It means: every claim is cited, bad citations are caught reliably, regressions are blocked before they deploy, and all of this holds per domain — not just in aggregate.
+
+### Working Notes: Evaluation Methodology Concepts
+
+*Scratchpad for concepts from Chip Huyen's AI Engineering (Ch. 3) and other sources. Each entry captures a concept and how it connects to or strengthens the existing rubric.*
+
+**Functional correctness** (Huyen, Ch. 3) — Evaluating a system based on whether it performs its intended functionality. Example: if AI schedules workloads to optimize energy consumption, performance is measured by energy saved. Section 2's rubric is an instance of this: the intended function is "every claim cited, every citation verified," and the metrics (precision, recall, F1) measure exactly that outcome. This is worth naming because it distinguishes the approach from proxy-based evaluation (e.g., perplexity, BLEU) — the rubric measures the thing we actually care about.
+
+**Few-shot prompting** (Brown et al., 2020; Huyen, Ch. 5) — Teaching a model to perform a task by including labeled examples in the prompt, also known as in-context learning. Each example provided is called a "shot" — five examples is five-shot, no examples is zero-shot.
+
+**Logprobs** (log probabilities) — When a model classifies a claim as "entails," logprobs tell you how much probability mass it put on that token vs. the alternatives. High probability = high confidence. This is the mechanism behind the "confidence score" referenced in Stage 4 and in the evaluation sections. *Not every model exposes logprobs — must check which models in use support them, and whether an alternative confidence-extraction method is needed for models that don't.*
+
+**AI-generated reference data** (Huyen, Ch. 3) — It's increasingly common to have AI generate reference data (synthetic labels) and then have humans review it, rather than having humans generate reference data from scratch. The pattern inverts the traditional workflow: instead of "human labels, model learns," it's "model proposes, human verifies." This is faster because reviewing is cheaper than creating.
 
 ---
 
@@ -194,19 +239,19 @@ When a deploy is blocked, there are two things to check:
 
 The system has seven stages. Stages 1–5 run in the live path; Stages 6–7 are deferred or offline.
 
-**Stage 1 — Source Indexing.** Source materials are chunked, embedded, and indexed into a per-session vector store. The rest of the architecture treats this as a dependency, not a given — poor chunking or retrieval directly increases A2 failures downstream (the model cites the best available chunk, which may not actually support the claim if the right chunk wasn't retrieved). Indexing quality is monitored via Stage 7: if A2 rates spike in a specific domain, retrieval is the first suspect.
+**Stage 1 — Source Indexing.** Source materials are chunked, embedded, and indexed into a per-session vector store. The rest of the architecture assumes this step is done correctly.
 
-**Stage 2 — Skeleton Generation.** The first LLM call produces a structured intermediate: claims organized by section, each with the chunk ID of its supporting evidence. This is the factual skeleton — what will be asserted, where, and why — before any prose. Cheap to generate, easy to inspect, and gives downstream stages clean structured inputs rather than requiring claim extraction from prose.
+<span id="stage-2"></span>**Stage 2 — Skeleton Generation.** The first LLM call produces a structured intermediate: claims organized by section, each with the chunk ID of its supporting evidence. This is the factual skeleton — what will be asserted, where, and why — before any prose. Cheap to generate, easy to inspect, and gives downstream stages clean structured inputs rather than requiring claim extraction from prose.
 
 **Stage 3 — Deterministic Coverage Check.** Every claim checked for citation presence. No model call needed. Claims with no citation are dropped. Catches all A1 failures at zero cost.
 
-**Stage 4 — Inline Support Checking (v2).** The first of two LLM-as-judge roles in the system — this one runs in the live path on every claim before the user sees anything. For every cited claim, an LLM validates the (claim, evidence) pair against the four-class schema defined in the rubric. All checks run in parallel.
+<span id="stage-4"></span>**Stage 4 — Inline Support Checking (v2).** The first of two LLM-as-judge roles in the system — this one runs in the live path on every claim before the user sees anything. For every cited claim, an LLM validates the (claim, evidence) pair against the criteria defined in the evaluation prompt. All checks run in parallel.
 
 - **Binary action:** "entails" or "partially supports" → pass; "contradicts" or "irrelevant" → drop. The four-class label is preserved in the skeleton so Stage 5 can use it to calibrate assertion language.
-- **Confidence scores:** each verdict includes a score (derived from logprobs), used to [direct the offline evaluation pipeline](#success-criteria) — not to change inline behavior.
+- **Confidence scores:** each verdict includes a score (derived from logprobs), verdicts with low scores go directly to the offline evaluation pipeline. Not to change inline behavior.
 - **No repair loop (yet):** dropped claims are currently discarded. Future iterations could attempt repair — finding a better citation or reformulating the claim — rather than silently removing it.
 
-**Stage 5 — Prose Rendering.** The verified skeleton is rendered into long-form text. The two surviving labels [control assertion language](#partial-support) — "entails" gets confident prose, "partially supports" gets downgraded prose. No new factual assertions introduced, citation tags preserved.
+<span id="stage-5"></span>**Stage 5 — Prose Rendering.** The verified skeleton is rendered into long-form text. The two surviving labels [control assertion language](#partial-support) — "entails" gets confident prose, "partially supports" gets downgraded prose. No new factual assertions introduced, citation tags preserved.
 
 **Stage 6 — Intra-Document Consistency Check (v3).** Operates on the full verified skeleton to detect A3 failures. Builds a structured representation of key terms across sections, flagging definitional drift and cross-section contradictions. Deferred because it requires whole-document reasoning, justified only once foundation stages are proven.
 
@@ -299,3 +344,9 @@ Pull 30–50 real outputs across document types as the annotation set. Two annot
 **User feedback as a signal for improvement.** The system generates verification judgments at scale, but users also generate signal — editing flagged claims, restoring dropped claims, reporting errors the system missed. These patterns are a natural source of labeled data for judge calibration, retrieval quality monitoring, and annotation prioritization. The feedback loop isn't designed yet: what's captured, how it's stored, and how it flows back into evaluation and retraining are open design questions.
 
 **UX and transparency at 10K users.** The system drops unsupported claims and downgrades language for partially supported ones, but users currently have no visibility into *why*. Open questions: Do users see what was dropped and why? Can they override the system (restore a dropped claim, escalate a flagged citation)? Does transparency improve trust or create noise? At 10K users across different domains and risk tolerances, a single UX may not fit — a legal analyst may want full audit trails while a content writer may want clean output with minimal friction. How the system surfaces its decisions, and how much control users have over verification strictness, shapes adoption as much as detection accuracy does.
+
+---
+
+## Resources
+
+- [How to Align LLM Judge with Human Labels](https://www.evidentlyai.com/blog/how-to-align-llm-judge-with-human-labels#4-evaluate-and-iterate)
