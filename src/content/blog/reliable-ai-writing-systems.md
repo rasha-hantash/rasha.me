@@ -26,7 +26,7 @@ Hallucinations in 5–20 page documents aren't a single failure — they're a cl
 
 **Out of scope for this proposal but worth naming:**
 
-**Reasoning hallucinations.** The citation does support the claim, but the conclusion drawn from multiple valid claims doesn't follow. Each individual source-claim pair checks out; the error is in the logic connecting them. A real failure mode in analytical summaries, but outside the detection framework proposed here.
+**Leaping to conclusions.** The citation does support the claim, but the conclusion drawn from multiple valid claims doesn't follow. Each individual source-claim pair checks out; the error is in the logic connecting them. A real failure mode in analytical summaries, but outside the detection framework proposed here.
 
 > *"Revenue grew 22% (Source A) and headcount doubled (Source B), demonstrating that hiring drove growth."* — both citations are correct, but the causal claim isn't supported by either source.
 
@@ -143,16 +143,20 @@ Triggered whenever the model, prompts, or retrieval logic changes.
 
 The first is easy to check — deterministic unit tests can verify that every claim has a citation attached, no model judgment needed. The second requires an LLM to read the claim, read the cited source, and decide whether they match. That judgment happens twice in the system: once in real time (the inline judge, Stage 4) and once offline (the offline judge, Stage 7). Each needs its own success measure.
 
-**Measuring the offline judge: alignment with human annotators.**
+**The offline judge.**
 
-Before trusting any automated metric, we need to know the offline judge agrees with humans. Phase 1 (Weeks 1–2) establishes this:
+The offline judge does one thing: look at a claim-citation pair and decide "supported" or "not supported." But we use it for two different purposes.
+
+*1. Evaluating the system.* Run the full pipeline on the golden dataset — documents with human-labeled ground truth — and compare the system's pass/drop decisions against the human labels. This gives us precision, recall, and F1: the scores that feed into the CI/CD gate. Every code change is measured this way before it can deploy.
+
+*2. Calibrating the judge itself.* Before trusting those scores, we need to know the judge agrees with humans. Phase 1 (Weeks 1–2) establishes this:
 
 - Two human annotators independently label the same sample — at least 100 claims across 10+ documents, split by domain.
 - We measure how often the annotators agree with each other using Cohen's Kappa (κ). If the humans can't agree (κ < 0.75), the labeling guidelines are too ambiguous and nothing downstream can be trusted.
-- Once humans agree, we run the offline judge on the same sample and compare its labels to the human labels. This tells us: how often does the judge catch bad citations (recall), and how often are its flags real problems vs. false alarms (precision).
-- These numbers become the baseline. Every future change to the system is measured against them.
+- Once humans agree, we run the offline judge on the same sample and compare its verdicts to the human labels. This tells us how often the judge catches bad citations (recall) and how often its flags are real problems vs. false alarms (precision).
+- These numbers become the judge's baseline. If judge-human agreement drops later, we fix the judge before trusting any system metrics.
 
-When the offline judge's own confidence on a verdict is low, that verdict gets sent to human annotators for verification rather than being trusted as evaluation data. The offline judge is recalibrated against fresh human labels ad hoc — when something feels off — and after any major model swap. If judge-human agreement drops, we fix the judge before trusting any system metrics.
+When the judge's confidence on a verdict is low, that verdict gets sent to human annotators rather than being trusted as evaluation data. The judge is recalibrated against fresh human labels ad hoc — when something feels off — and after any major model swap. Recalibration means updating the judge's rubric and few-shot examples based on where it disagrees with humans.
 
 **Measuring the inline judge: accuracy in production.**
 
