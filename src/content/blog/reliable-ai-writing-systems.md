@@ -101,23 +101,21 @@ A hallucination is any factual claim that fails either of two tests:
 
 ### The Key Trade-off: Precision vs. Recall
 
-With the [evaluation criteria](#evaluation-criteria) established, the next question is how to measure detection quality.
+With the [evaluation criteria](#evaluation-criteria) established, the next question is how to measure whether the judges are getting it right.
 
-The hallucination detector is a binary classifier: for each claim, it labels it `hallucinated` or `not hallucinated`. Four standard metrics describe classifier performance, but they aren't equally useful here.
+Our inline and offline LLM judges classify every (claim, citation) pair against the [evaluation criteria](#evaluation-criteria) — entails, partially supports, contradicts, or irrelevant. From there, the binary label is deterministic: "entails" or "partially supports" maps to `not hallucinated`; "contradicts" or "irrelevant" maps to `hallucinated`. Separately, during evaluation, those labels are compared against human-annotated ground truth — building a confusion matrix and computing precision, recall, and F1. Four standard metrics describe judge performance, but they aren't equally useful here.
 
 **Accuracy** is misleading if the classes are unbalanced — and we assume they will be. The LLM is writing from provided sources, so most claims should be properly supported; hallucinations are likely the minority class. We don't know the exact ratio until the first annotation pass, but if hallucinations make up, say, 10% of claims, a system that labels everything `not hallucinated` without checking would still score ~90% accuracy while catching zero hallucinations. The more unbalanced the classes, the less accuracy tells you.
 
 **Recall** is the primary metric. Of all actual hallucinations, how many did the system catch? A missed hallucination reaches the user as a wrong citation that looks verified. This is exactly the A2 scenario from Section 1: a citation that signals verification where there is none. Recall is optimized first.
 
-**Precision** is the secondary metric. When the system flags a claim as hallucinated, is it actually hallucinated? If precision is too low, valid claims get dropped and users receive incomplete documents. But a false positive is recoverable — the claim can be reviewed and reinstated. A missed hallucination is not. So precision is maintained as a floor, not the optimization target.
+**Precision** is the secondary metric. When the system flags a claim as hallucinated, is it actually hallucinated? If precision is too low, valid claims get dropped and users receive incomplete documents.
 
 **F1** combines precision and recall into a single score. Early on, recall is the priority — catching hallucinations matters more than avoiding false alarms. But once recall is strong, the focus shifts to improving precision without sacrificing recall. At that point, F1 becomes the metric to determine whether the system is getting better overall.
 
 #### Where these numbers come from
 
-These metrics aren't computed at runtime. The judge labels claims during generation; precision, recall, and F1 are computed separately, during evaluation, by comparing the judge's labels against human-annotated ground truth.
-
-For every claim in a labeled test set, there are four possible outcomes:
+These metrics come from a separate evaluation pass, not from runtime. For every claim in a labeled test set, there are four possible outcomes:
 
 <table>
   <colgroup>
@@ -128,8 +126,8 @@ For every claim in a labeled test set, there are four possible outcomes:
   <thead>
     <tr>
       <th></th>
-      <th>Judge says <code>hallucinated</code></th>
-      <th>Judge says <code>not hallucinated</code></th>
+      <th>Labeled <code>hallucinated</code></th>
+      <th>Labeled <code>not hallucinated</code></th>
     </tr>
   </thead>
   <tbody>
@@ -152,10 +150,6 @@ From this:
 - **Precision** = TP / (TP + FP). Of the claims the judge flagged, what fraction were actually hallucinated? If the judge flags 12 claims but only 8 are real hallucinations, precision is 0.67.
 - **F1** = 2 × (Precision × Recall) / (Precision + Recall). The harmonic mean — it penalizes cases where one metric is high and the other is low. With recall of 0.80 and precision of 0.67, F1 is 0.73.
 
-**What "precision as a floor" means in practice.** We set a minimum acceptable precision — say, 0.80 — and optimize recall as high as possible without dropping below it. This is a constrained optimization: maximize recall, subject to precision ≥ threshold. If a change to the judge prompt improves recall from 0.85 to 0.92 but drops precision from 0.82 to 0.65, we reject it — too many valid claims are being wrongly flagged. If it improves recall to 0.92 while precision stays at 0.80, we take it. The floor is set empirically during calibration, based on what level of false flags is tolerable before documents feel incomplete.
-
-**When this happens.** Phase 1 (Weeks 1–2) of the [validation plan](#success-criteria) is where these numbers are first computed. Human annotators label a test set, the judge runs on the same claims, and a scoring script compares the two — producing the confusion matrix above and the resulting metrics. This is the calibration loop: if recall or precision is off, we iterate on the judge prompt and re-evaluate until the numbers meet the floor.
-
 ### Cost as a Trade-off Lever
 
 These metrics define what "good" means. The next constraint is what it costs to measure.
@@ -164,7 +158,7 @@ Evaluation cost scales with claim volume — the more verifiable claims a docume
 
 The expensive component is human annotation. The [two-tier strategy](#the-ground-truth-problem) — small human-labeled set as ground truth, larger LLM-labeled set for coverage — is a direct response to this cost constraint. The trade-off: LLM-generated labels are cheaper but less trustworthy, so they are validated against the human set periodically rather than treated as ground truth independently.
 
-The precision floor is also a cost constraint in disguise. Every false flag either silently removes valid content (degrading user experience) or requires human review to reinstate (adding cost). A system with high recall but low precision would catch nearly every hallucination while also flagging many valid claims — producing incomplete documents or overwhelming reviewers.
+Low precision is also a cost constraint in disguise. Every false flag either silently removes valid content (degrading user experience) or requires human review to reinstate (adding cost). A system with high recall but low precision would catch nearly every hallucination while also flagging many valid claims — producing incomplete documents or overwhelming reviewers.
 
 ---
 
@@ -330,9 +324,7 @@ The architecture assumes that constraining generation to a verified skeleton mea
 
 ### Alternatives Considered
 
-**Annotated prose generation.** Give the model the retrieved source documents directly — no skeleton — and ask it to generate prose while tagging each claim inline with its source citation. However, the silent-gaps problem is the same shape as the skeleton's [leakage risk](#open-questions). This is the approach the industry has converged on — it's what [Perplexity AI](https://www.frugaltesting.com/blog/behind-perplexitys-architecture-how-ai-search-handles-real-time-web-data) and [Google AI Overviews](https://docs.cloud.google.com/vertex-ai/generative-ai/docs/grounding/grounding-with-google-search) both use. Our skeleton architecture is a bet that adding a structured intermediate step — verifying claim-source links *before* prose generation — produces a more reliable version of what this approach already does well.
-
-**Post-hoc citation.** Generate full prose first with no citation constraints, then add and verify citations in a separate pass. Unlike annotated prose generation, the writing pass doesn't carry the dual-task burden of producing structured annotations while writing — it just writes. The citation pass then maps each claim to its source independently. A [NeurIPS 2025 study on citation paradigms](https://arxiv.org/abs/2509.21557) found this approach (P-Cite) achieved higher coverage (75% vs 37%), higher answer correctness (78% vs 69%), and lower citation hallucination (37% vs 41%) compared to inline citation generation (G-Cite), and recommends it for high-stakes applications. Trade-offs: two-pass cost (prose generation + citation pass), and the prose pass generates without grounding constraints — the model writes freely, which risks hallucination that the citation pass then has to catch rather than prevent.
+**Generate from chunks.** Give the model the retrieved source chunks directly — no skeleton — and ask it to generate prose while tagging each claim inline with its source citation. However, the silent-gaps problem is the same shape as the skeleton's [leakage risk](#open-questions). This is the approach the industry has converged on — it's what [Perplexity AI](https://www.searchenginejournal.com/perplexity-ai-interview-explains-how-ai-search-works/565395/) uses. Our skeleton architecture is a bet that adding a structured intermediate step — verifying claim-source links *before* prose generation — produces a more reliable version of what this approach already does well.
 
 **Chunked prose rendering.** Same verified skeleton, but instead of rendering the full document in one LLM call, render one section at a time. Each call gets a focused input — one section of the skeleton plus its sources — so the model stays grounded and context dilution is less of a concern. The trade-off is more LLM calls (one per section), higher latency, and the model doesn't see the full document while writing each section, so cross-section flow may feel disjointed. If Week 2 shows that rendering the full skeleton at once causes quality problems — elevated leakage rate, degraded prose quality, or both — chunked rendering becomes the fallback.
 
@@ -352,7 +344,7 @@ At 10,000 users the API-vs-self-hosted question becomes material. Three factors 
 
 - **Rate limits.** API providers cap requests per minute. OpenAI's GPT-4o, for example, allows 500 RPM at Tier 1 and tops out at 10,000 RPM at Tier 5. A multi-stage pipeline multiplies the request volume per user, so these ceilings matter at scale.
 - **Latency.** Every API call is a network call. Self-hosted models cut out that round trip, giving you more predictable response times.
-- **Cost curve.** API pricing is per-token and scales linearly — 10× the users means 10× the cost. Self-hosted has high fixed costs but lower marginal cost per request, so at enough volume the economics flip.
+- **Cost curve.** API pricing is per-token and scales linearly — 10× the users means 10× the cost. Self-hosted requires significant upfront engineering time — standing up inference infrastructure, enforcing guardrails, and building the supporting services around the model — but removes per-token fees entirely.
 
 The fixed costs of self-hosting are real. You need infrastructure engineers to set up and maintain inference servers, optimize the model for your hardware, scale capacity to match demand, and build guardrails that API providers give you out of the box. That's non-trivial time, talent, and ongoing operational burden. But once the infrastructure is running, each additional request costs only compute — no per-token markup, no rate limit negotiation.
 
