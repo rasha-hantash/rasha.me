@@ -10,7 +10,7 @@ draft: false
 
 **Types of Hallucinations in Long-Form AI Writing**
 
-Hallucinations in 5–20 page documents aren't a single failure — they're a cluster of distinct failures with different detection profiles and different costs. In a sources-first system (where every factual claim must cite a provided input), "hallucination" becomes specific and measurable.
+This proposal assumes a sources-first system — every factual claim must cite a provided input. Under that constraint, hallucinations in a 15–20 page document become specific and measurable.
 
 **A1 — Missing grounding (uncited factual claims).** The model makes a factual claim with no citation attached. Detectable structurally: no citation token means the claim is logged and dropped from the output.
 
@@ -34,32 +34,9 @@ Hallucinations in 5–20 page documents aren't a single failure — they're a cl
 
 ---
 
-**Which Matter Most and Why**
-
-**Rank 1 — A2.** A false citation is strictly worse than no citation. It signals verification when there is none, and users who see a citation rarely check. One high-profile A2 failure can invalidate trust in the entire product. A2 is the most dangerous failure but also the hardest to detect, so it ships in v2 — with the offline judge collecting data in v1 as interim mitigation.
-
-**Rank 2 — A1.** Scales with document length but is structurally detectable (no citation = automatic flag) and often repairable. Lower damage than A2 because it doesn't create false confidence.
-
-**Rank 3 — A3.** Damages credibility but is hardest to detect — requires structured claim representation across the full document. Deferred to v3 not because it's unimportant, but because it needs infrastructure that doesn't exist in v1.
-
----
-
-### How the Problem Changes With Context
-
-**Document length** is the primary scaling pressure. Early errors propagate: a wrong figure in Section 2 gets restated in Section 5 and summarized incorrectly in Section 8. As output grows, source passages lose salience in the model's context and gap-filling from parametric memory increases — the main driver of A1 and A2 in long-form specifically.
-
-**Domain** shapes which failure is most costly. In medical, legal, and financial contexts, wrong citations are expensive — documents are generated at scale, reviewed quickly, and a confident-sounding fabrication is easy to miss under time pressure.
-
-**Use case** determines what to watch for:
-- *Summarization*: hallucination by addition — new facts not in the source.
-- *Technical documentation*: version drift — citing APIs, parameters, or behaviors from the wrong version of a library or system.
-- *Analysis*: claim strength exceeding evidence strength — confident claims where hedged language ("suggests," "may indicate") is warranted.
-
----
-
 ### Root Causes
 
-Hallucination is structural, not a bug to be patched. It persists partly because [current evaluation methods set the wrong incentives](https://openai.com/index/why-language-models-hallucinate/) — most benchmarks measure performance in a way that encourages guessing rather than honesty about uncertainty. These pressures are baked in before the model sees your sources.
+Hallucination persists partly because [current evaluation methods set the wrong incentives](https://openai.com/index/why-language-models-hallucinate/) — most benchmarks measure performance in a way that encourages guessing rather than honesty about uncertainty. These pressures are baked in before the model sees your sources.
 
 In long-form, source-grounded writing, five failure modes layer on top:
 
@@ -75,9 +52,34 @@ In long-form, source-grounded writing, five failure modes layer on top:
 
 ---
 
+**Which Matter Most and Why**
+
+These root causes make the three failure types unequal in both danger and detectability.
+
+**Rank 1 — A2.** A false citation is strictly worse than no citation. It signals verification when there is none, and users who see a citation rarely check. One high-profile A2 failure can invalidate trust in the entire product. A2 is the most dangerous failure and — as the preceding section shows — the hardest to detect: source confusion under topical similarity means the citation *looks* plausible, and distinguishing "topically related" from "semantically entailing" is exactly the judgment current models handle worst. A2 ships in v2, with the offline judge collecting data in v1 as interim mitigation.
+
+**Rank 2 — A1.** Scales with document length but is structurally detectable (no citation = automatic flag) and often repairable. Lower damage than A2 because it doesn't create false confidence. Driven primarily by fluency pressure and context dilution — the model fills gaps rather than admitting them.
+
+**Rank 3 — A3.** Damages credibility but requires structured claim representation across the full document — infrastructure the system doesn't have until v3. The underlying cause is no persistent claim state: the model generates token-by-token with no memory of what it asserted in prior sections. Deferred not because it's unimportant, but because detection requires infrastructure that doesn't exist in v1.
+
+---
+
+### How the Problem Changes With Context
+
+**Document length** is the primary scaling pressure. Early errors propagate: a wrong figure in Section 2 gets restated in Section 5 and summarized incorrectly in Section 8. As output grows, source passages lose salience in the model's context and gap-filling from parametric memory increases — the main driver of A1 and A2 in long-form specifically.
+
+**Domain** shapes which failure is most costly. In medical, legal, and financial contexts, wrong citations are expensive — documents are generated at scale, reviewed quickly, and a confident-sounding fabrication is easy to miss under time pressure. Each domain we cover should have a dedicated prompt for generating the long 15–20 page prose — domain-specific language, conventions, and risk patterns vary enough that a single generic prompt won't hold.
+
+**Use case** determines what to watch for:
+- *Summarization*: hallucination by addition — new facts not in the source.
+- *Technical documentation*: version drift — citing APIs, parameters, or behaviors from the wrong version of a library or system.
+- *Analysis*: claim strength exceeding evidence strength — confident claims where hedged language ("suggests," "may indicate") is warranted.
+
+---
+
 ## 2. Evaluation Rubric
 
-Understanding why hallucinations happen — and which failure modes are structural vs. model-specific — shapes what to measure and how. This section covers: how hallucinations are classified, the precision/recall trade-off for detection, cost constraints, the ground truth annotation strategy, and what the system must achieve to ship.
+Section 1 established that wrong citations (A2) are more dangerous than missing citations (A1) — they create false confidence that's hard to detect because the model confuses topical proximity with semantic support. That asymmetry drives every measurement decision in this section: what counts as a hallucination, which metric to optimize, and what the system must achieve to ship.
 
 ### Defining a Hallucination
 
@@ -87,7 +89,7 @@ A hallucination is any factual claim that fails either of two tests:
 
 **Test 2 — Support:** Does the cited source actually back the claim? A citation that exists but is irrelevant or contradictory is still a hallucination — and the more dangerous kind, because it looks verified.
 
-<span id="evaluation-criteria"></span>Support is measured on the following evaluation criteria:
+<span id="evaluation-criteria"></span>Our offline and inline LLM judge measure **Support** on the following criteria:
 - **Entails** — the cited passage directly and sufficiently supports the claim as stated.
 - **Partially supports** — directionally consistent but incomplete — e.g., a number from a different time period, or a source backing part of a compound claim.
 - **Contradicts** — the source says the opposite or the claim materially misrepresents it.
@@ -105,11 +107,11 @@ The hallucination detector is a binary classifier: for each claim, it labels it 
 
 **Accuracy** is misleading if the classes are unbalanced — and we assume they will be. The LLM is writing from provided sources, so most claims should be properly supported; hallucinations are likely the minority class. We don't know the exact ratio until the first annotation pass, but if hallucinations make up, say, 10% of claims, a system that labels everything `not hallucinated` without checking would still score ~90% accuracy while catching zero hallucinations. The more unbalanced the classes, the less accuracy tells you.
 
-**Recall** is the primary metric. Of all actual hallucinations, how many did the system catch? A missed hallucination — a false negative — reaches the user as a wrong citation that looks verified. That's the worst failure mode: it directly undermines trust in the document. Recall is optimized first.
+**Recall** is the primary metric. Of all actual hallucinations, how many did the system catch? A missed hallucination reaches the user as a wrong citation that looks verified. This is exactly the A2 scenario from Section 1: a citation that signals verification where there is none. Recall is optimized first.
 
 **Precision** is the secondary metric. When the system flags a claim as hallucinated, is it actually hallucinated? If precision is too low, valid claims get dropped and users receive incomplete documents. But a false positive is recoverable — the claim can be reviewed and reinstated. A missed hallucination is not. So precision is maintained as a floor, not the optimization target.
 
-**F1** combines precision and recall into a single score, useful for regression tracking. But it weights both equally — it doesn't capture that we prioritize recall over precision. We track F1, but decisions are made on recall and precision individually.
+**F1** combines precision and recall into a single score. Early on, recall is the priority — catching hallucinations matters more than avoiding false alarms. But once recall is strong, the focus shifts to improving precision without sacrificing recall. At that point, F1 becomes the metric to determine whether the system is getting better overall.
 
 #### Where these numbers come from
 
@@ -117,10 +119,32 @@ These metrics aren't computed at runtime. The judge labels claims during generat
 
 For every claim in a labeled test set, there are four possible outcomes:
 
-|  | Judge says `hallucinated` | Judge says `not hallucinated` |
-|---|---|---|
-| **Actually hallucinated** | True Positive (TP) — caught it | False Negative (FN) — missed it |
-| **Actually not hallucinated** | False Positive (FP) — false alarm | True Negative (TN) — correctly left alone |
+<table>
+  <colgroup>
+    <col style="width: 20%">
+    <col style="width: 40%">
+    <col style="width: 40%">
+  </colgroup>
+  <thead>
+    <tr>
+      <th></th>
+      <th>Judge says <code>hallucinated</code></th>
+      <th>Judge says <code>not hallucinated</code></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Actually hallucinated</strong></td>
+      <td>True Positive (TP) — caught it</td>
+      <td>False Negative (FN) — missed it</td>
+    </tr>
+    <tr>
+      <td><strong>Actually not hallucinated</strong></td>
+      <td>False Positive (FP) — false alarm</td>
+      <td>True Negative (TN) — correctly left alone</td>
+    </tr>
+  </tbody>
+</table>
 
 From this:
 
@@ -150,7 +174,7 @@ Cost constraints shape the annotation strategy — which determines how trustwor
 
 Annotation is harder than it sounds. The annotator must read the claim, read the cited passage, and judge support — genuinely ambiguous at the edges and requiring domain knowledge.
 
-**Agreement threshold:** Before using any labeled data as ground truth, two annotators independently label the same sample and measure Cohen's Kappa (a measure of agreement between two annotators, where 0.75+ indicates substantial agreement). The bar is κ ≥ 0.75 before any system metrics are computed. Re-checked whenever guidelines change or a new annotator joins.
+**Agreement threshold:** Before using any labeled data as ground truth, two annotators independently label the same sample and are measured against [Cohen's Kappa](https://surge-ai.medium.com/inter-annotator-agreement-an-introduction-to-cohens-kappa-statistic-dcc15ffa5ac4), with kappa ideally at a strong agreement level of 0.8 or higher. Re-checked whenever guidelines change or a new annotator joins.
 
 **Scale:** A 20-page document can have hundreds of claims; exhaustive annotation is expensive. The approach is two-tier: a small, carefully human-labeled set as the primary standard, and a larger LLM-as-judge set for broader coverage and regression detection — validated against the human set periodically, not treated as ground truth on its own. The LLM-labeled tier follows the "model proposes, humans verify" pattern: the model generates candidate labels, and humans review a sample rather than labeling from scratch — faster because reviewing is cheaper than creating.
 
@@ -280,11 +304,11 @@ The system has seven stages. Stages 1–5 run in the live path; Stages 6–7 are
 
 > **Risk note:** Source indexing is load-bearing for every downstream stage. Chunking strategy matters: chunks too large produce imprecise entailment judgments (the inline judge sees a relevant passage buried in irrelevant context); chunks too small lose the context needed to support a claim. Embedding model selection matters: poor domain representations cause the skeleton to cite wrong evidence, and every downstream stage inherits that error. Retrieval quality is not validated in v1 — if Stage 4 shows a high "irrelevant" rate, retrieval is the first place to investigate.
 
-<span id="stage-2"></span>**Stage 2 — Skeleton Generation.** The first LLM call produces the factual skeleton: claims organized by section, each with the chunk ID of its supporting evidence — what will be asserted, where, and why — before any prose. Cheap to generate, easy to inspect, and gives downstream stages clean structured inputs rather than requiring claim extraction from prose.
+<span id="stage-2"></span>**Stage 2 — Skeleton Generation.** The first LLM call produces the factual skeleton: claims organized by section, each with the chunk ID of its supporting evidence — what will be asserted, where, and why — before any prose. This directly addresses two root causes from Section 1: context dilution (the model works with structured evidence links rather than holding all sources in context during writing) and fluency pressure (the skeleton is claims + evidence, not prose, so there's no pressure to interpolate for readability). Cheap to generate, easy to inspect, and gives downstream stages clean structured inputs rather than requiring claim extraction from prose.
 
 **Stage 3 — Deterministic Coverage Check.** Every claim checked for citation presence. No model call needed. Claims with no citation are flagged and dropped from the output. Catches all A1 failures at zero cost.
 
-<span id="stage-4"></span>**Stage 4 — Inline Support Checking (v2).** The first of two LLM-as-judge roles in the system — this one runs in the live path on every claim before the user sees anything. For every cited claim, an LLM classifies the (claim, evidence) pair against the [evaluation criteria](#evaluation-criteria). All checks run in parallel.
+<span id="stage-4"></span>**Stage 4 — Inline Support Checking (v2).** The first of two LLM-as-judge roles in the system — this one runs in the live path on every claim before the user sees anything. For every cited claim, an LLM classifies the (claim, evidence) pair against the [evaluation criteria](#evaluation-criteria). This stage targets the root cause behind A2: source confusion under topical similarity — the model cites passages that are *about* the right topic but don't *entail* the claim. The inline judge's job is exactly that distinction. All checks run in parallel.
 
 - **Binary action:** "entails" or "partially supports" → pass; "contradicts" or "irrelevant" → drop. The label is preserved in the skeleton so Stage 5 can use it to calibrate assertion language.
 - **Confidence scores:** each verdict includes a score (derived from logprobs), verdicts with low scores go directly to the offline evaluation pipeline. Not to change inline behavior.
@@ -292,7 +316,7 @@ The system has seven stages. Stages 1–5 run in the live path; Stages 6–7 are
 
 <span id="stage-5"></span>**Stage 5 — Prose Rendering.** The skeleton is rendered into long-form text. In v1, this is the coverage-checked skeleton (no support labels — Stage 4 hasn't shipped yet). In v2, once Stage 4 is live, the two surviving labels [control assertion language](#partial-support) — "entails" gets confident prose, "partially supports" gets downgraded prose. No new factual claims introduced, citation tags preserved.
 
-**Stage 6 — Intra-Document Consistency Check (v3).** Operates on the full verified skeleton to detect A3 failures. Builds a structured representation of key terms across sections, flagging definitional drift and cross-section contradictions. Deferred because it requires whole-document reasoning, justified only once foundation stages are proven.
+**Stage 6 — Intra-Document Consistency Check (v3).** Operates on the full verified skeleton to detect A3 failures — the direct consequence of no persistent claim state, where the model generates token-by-token with no memory of prior assertions. This stage provides that memory externally: it builds a structured representation of key terms across sections, flagging definitional drift and cross-section contradictions. Deferred because it requires whole-document reasoning, justified only once foundation stages are proven.
 
 **Stage 7 — Offline LLM Judge and CI/CD Pipeline.** The second judge role — this one runs offline against sampled production outputs, not in the live path. Uses the same [evaluation criteria](#evaluation-criteria) as Stage 4, but serves a different purpose: measuring system-level accuracy over time rather than making per-claim decisions in real time. This is the offline judge that feeds the CI/CD pipeline and gets calibrated against human labels.
 
@@ -306,7 +330,9 @@ The architecture assumes that constraining generation to a verified skeleton mea
 
 ### Alternatives Considered
 
-**Annotated prose generation.** Skip the skeleton. Generate full prose directly, but ask the model to tag each claim inline with its source citation as it writes. You get natural document flow *and* structured claim-citation pairs you can extract and verify — without a separate claim-extraction step. Trade-offs: no pre-prose checkpoint (you generate first, verify after — wasting the call if many claims fail), silent gaps (unannotated claims skip verification entirely), and dual-task pressure (the model writes prose and produces structured annotations in the same call). None are dealbreakers — the silent-gaps problem is the same shape as the skeleton's [leakage risk](#open-questions). This is the approach the industry has converged on — it's what [Perplexity AI](https://www.frugaltesting.com/blog/behind-perplexitys-architecture-how-ai-search-handles-real-time-web-data), [Google AI Overviews](https://docs.cloud.google.com/vertex-ai/generative-ai/docs/grounding/grounding-with-google-search), and a [NeurIPS 2025 study on citation paradigms](https://arxiv.org/abs/2509.21557) all use or recommend.
+**Annotated prose generation.** Give the model the retrieved source documents directly — no skeleton — and ask it to generate prose while tagging each claim inline with its source citation. However, the silent-gaps problem is the same shape as the skeleton's [leakage risk](#open-questions). This is the approach the industry has converged on — it's what [Perplexity AI](https://www.frugaltesting.com/blog/behind-perplexitys-architecture-how-ai-search-handles-real-time-web-data) and [Google AI Overviews](https://docs.cloud.google.com/vertex-ai/generative-ai/docs/grounding/grounding-with-google-search) both use. Our skeleton architecture is a bet that adding a structured intermediate step — verifying claim-source links *before* prose generation — produces a more reliable version of what this approach already does well.
+
+**Post-hoc citation.** Generate full prose first with no citation constraints, then add and verify citations in a separate pass. Unlike annotated prose generation, the writing pass doesn't carry the dual-task burden of producing structured annotations while writing — it just writes. The citation pass then maps each claim to its source independently. A [NeurIPS 2025 study on citation paradigms](https://arxiv.org/abs/2509.21557) found this approach (P-Cite) achieved higher coverage (75% vs 37%), higher answer correctness (78% vs 69%), and lower citation hallucination (37% vs 41%) compared to inline citation generation (G-Cite), and recommends it for high-stakes applications. Trade-offs: two-pass cost (prose generation + citation pass), and the prose pass generates without grounding constraints — the model writes freely, which risks hallucination that the citation pass then has to catch rather than prevent.
 
 **Chunked prose rendering.** Same verified skeleton, but instead of rendering the full document in one LLM call, render one section at a time. Each call gets a focused input — one section of the skeleton plus its sources — so the model stays grounded and context dilution is less of a concern. The trade-off is more LLM calls (one per section), higher latency, and the model doesn't see the full document while writing each section, so cross-section flow may feel disjointed. If Week 2 shows that rendering the full skeleton at once causes quality problems — elevated leakage rate, degraded prose quality, or both — chunked rendering becomes the fallback.
 
@@ -368,11 +394,11 @@ Pull real outputs across document types as the annotation set. Two annotators la
 
 Three outcomes would trigger a pivot away from the skeleton-first architecture:
 
-1. **Prose leakage rate stays unacceptably high after prompt iteration.** The threshold is set after Week 1 establishes a baseline. If the prose stage consistently introduces new factual claims not in the skeleton, the skeleton is not constraining generation — it's just adding latency. Pivot to annotated prose generation with post-hoc verification.
+1. **Prose leakage rate stays unacceptably high after prompt iteration.** This directly tests the [core bet](#the-core-bet--and-its-risk): does constraining generation to a verified skeleton actually reduce hallucination in prose? The threshold is set after Week 1 establishes a baseline. If the prose stage consistently introduces new factual claims not in the skeleton, the skeleton is not constraining generation — it's just adding latency. Pivot to [annotated prose generation](#alternatives-considered) with post-hoc verification.
 
-2. **Judge calibration fails to reach adequate inter-annotator agreement after two prompt revision cycles.** If the LLM judge cannot agree with human annotators at even a moderate level, inline support checking (Stage 4) cannot ship. The architecture reduces to coverage checking only, which may not justify the skeleton overhead.
+2. **Judge calibration fails to reach adequate inter-annotator agreement after two prompt revision cycles.** If the LLM judge cannot agree with human annotators at even a moderate level, [inline support checking (Stage 4)](#stage-4) cannot ship. Without Stage 4, the system catches A1 (missing citations) but not A2 (wrong citations) — the most dangerous failure type. The architecture reduces to coverage checking only, which may not justify the skeleton overhead.
 
-3. **End-to-end latency exceeds user tolerance with no clear path to reduction.** Users will not wait indefinitely for a verified document. If the three-call pipeline is fundamentally too slow, a single-pass approach with post-generation verification becomes necessary despite its drawbacks.
+3. **End-to-end latency exceeds user tolerance with no clear path to reduction.** The [three-call pipeline](#key-trade-offs) (skeleton → support check → prose) deliberately sacrifices speed for verification. If that trade-off is fundamentally unacceptable — users will not wait — a single-pass approach with post-generation verification becomes necessary despite its drawbacks.
 
 ---
 
@@ -397,3 +423,13 @@ Three outcomes would trigger a pivot away from the skeleton-first architecture:
 ## Resources
 
 - [How to Align LLM Judge with Human Labels](https://www.evidentlyai.com/blog/how-to-align-llm-judge-with-human-labels#4-evaluate-and-iterate)
+- [Accuracy, Precision, Recall](https://www.evidentlyai.com/classification-metrics/accuracy-precision-recall)
+- [Classification Metrics](https://www.evidentlyai.com/classification-metrics)
+- [Multi-Class Metrics](https://www.evidentlyai.com/classification-metrics/multi-class-metrics)
+- [Machine Learning Street Talk — Classification Metrics](https://www.youtube.com/watch?v=3M2Gmuh5mtI)
+- [Agentic Workflows: Emerging Architectures and Design Patterns](https://www.vellum.ai/blog/agentic-workflows-emerging-architectures-and-design-patterns)
+- [How to Evaluate the Quality of Large Language Models](https://www.vellum.ai/blog/how-to-evaluate-the-quality-of-large-language-models-for-production-use-cases)
+- [Logprobs](https://www.vellum.ai/llm-parameters/logprobs)
+- [Why LLM as a Judge Is the Best LLM Evaluation Method](https://www.confident-ai.com/blog/why-llm-as-a-judge-is-the-best-llm-evaluation-method)
+- [How to Reduce LLM Hallucinations](https://www.vellum.ai/blog/how-to-reduce-llm-hallucinations)
+- [LLM Hallucination Types with Examples](https://www.vellum.ai/blog/llm-hallucination-types-with-examples)
