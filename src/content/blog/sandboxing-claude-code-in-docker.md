@@ -1,7 +1,7 @@
 ---
 title: "Sandboxing Claude Code in Docker: From Naive to Hardened"
 pubDate: 2026-03-17
-description: "How I evolved a containerized Claude Code setup from 'it works' to actually secure — Docker secrets, read-only mounts, scratch clones, and what Anthropic's own reference does differently."
+description: "How I evolved a containerized Claude Code setup from 'it works' to actually secure — Docker secrets, read-only mounts, scratch clones, non-root runtime, and what Anthropic's own reference does differently."
 tags: ["claude-code", "docker", "security", "ai-agents", "devcontainer"]
 draft: false
 ---
@@ -32,7 +32,7 @@ services:
 
 Claude gets `--dangerously-skip-permissions`, works on your repos directly, pushes branches via Graphite. It works. Ship it.
 
-Three problems became obvious fast.
+Four problems became obvious fast.
 
 ## Problem 1: Your Tokens Are Naked
 
@@ -80,7 +80,7 @@ That file syncs to your host instantly. Next time your shell loads that hook, th
 volumes:
   - ~/workspace:/workspace:ro # physically read-only
   - workspace-scratch:/scratch # writable clone space
-  - claude-state:/root/.claude/projects
+  - claude-state:/home/node/.claude/projects
 ```
 
 The entrypoint accepts a `TARGET_REPO` env var, clones on demand:
@@ -104,10 +104,6 @@ The tradeoff is real-time visibility. With read-write mounts, you can watch Clau
 
 Even with read-only mounts, every credential inside the container is reachable via `curl`. Claude has your GitHub PAT, your Graphite token, and your Claude API credentials in memory. There are zero outbound network restrictions by default — Claude can POST all of them to any server on the internet.
 
-There's a subtler version of this problem: Claude can edit its own configuration. The deny list in `settings.json` blocks `gt merge`, but Claude could `sed` the deny rules out of its own settings file mid-session, then merge the PR it previously couldn't. The fix is setting the Linux immutable flag (`chattr +i`) on `settings.json` after the entrypoint writes it — even root can't modify an immutable file without explicitly removing the flag first. This requires adding the `LINUX_IMMUTABLE` capability to docker-compose.yml.
-
-For the network gap, I haven't closed it yet, and here's why.
-
 <a href="https://github.com/anthropics/claude-code/tree/main/.devcontainer" target="_blank">Anthropic's reference devcontainer</a> solves this with an <a href="https://github.com/anthropics/claude-code/blob/main/.devcontainer/init-firewall.sh" target="_blank">iptables firewall</a> — a default-deny outbound policy with an explicit allowlist:
 
 ```bash
@@ -122,20 +118,53 @@ Their allowlist includes npm, GitHub (with IPs fetched dynamically from `api.git
 
 This requires `NET_ADMIN` and `NET_RAW` capabilities, which grants the container the ability to modify its own network stack. The firewall rules run at container startup and lock down outbound traffic before Claude starts.
 
+## Problem 4: Running as Root
+
+V1 runs Claude as root inside the container. Claude can `rm -rf /usr/bin/` and destroy its own toolchain mid-session. It can also modify its own `settings.json` to remove deny rules — `sed` out the `gt merge` block, then merge a PR it previously couldn't.
+
+**Fix: Privilege separation.** The entrypoint runs as root to write config files (credentials, settings.json, Graphite auth), then drops to the `node` user (uid 1000) before launching Claude. This follows <a href="https://github.com/anthropics/claude-code/tree/main/.devcontainer" target="_blank">Anthropic's reference devcontainer</a> pattern — install as root, run as non-root.
+
+```dockerfile
+# Install everything as root
+RUN npm install -g @anthropic-ai/claude-code @withgraphite/graphite-cli
+
+# Create directories, hand ownership to node
+RUN mkdir -p /home/node/.claude /scratch \
+    && chown -R node:node /home/node /scratch
+
+# Entrypoint runs as root (writes config), then drops to node
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["claude", "--dangerously-skip-permissions"]
+```
+
+The key detail is how settings.json gets locked. The entrypoint writes the merged settings.json as root, then sets ownership to `root:node` with `chmod 444`. Since Claude runs as `node`, it cannot `chmod`, `chown`, or overwrite the file — the deny rules are permanently enforced for the duration of the session.
+
+```bash
+# In the entrypoint (running as root):
+chown root:node "$HOME/.claude/settings.json"
+chmod 444 "$HOME/.claude/settings.json"
+
+# Then drop to node user:
+exec su -s /bin/bash node -- "$@"
+```
+
+No extra Linux capabilities needed. No `chattr`. Just standard Unix file permissions, enforced by the kernel.
+
 ## What Anthropic Does vs What I Do
 
 A comparison of the approaches:
 
-|                 | Anthropic Reference              | My Setup (V2)                    |
-| --------------- | -------------------------------- | -------------------------------- |
-| **Repos**       | Bind mount (read-write)          | Read-only mount + scratch clone  |
-| **Tokens**      | Environment variables            | Docker secrets (file-mounted)    |
-| **Network**     | iptables firewall (default-deny) | No restrictions (planned)        |
-| **Sandbox**     | Not explicitly enabled           | Not enabled (container boundary) |
-| **User**        | Non-root (`node`)                | Root                             |
-| **Permissions** | `--dangerously-skip-permissions` | `--dangerously-skip-permissions` |
+|                 | Anthropic Reference              | My Setup (V2)                        |
+| --------------- | -------------------------------- | ------------------------------------ |
+| **Repos**       | Bind mount (read-write)          | Read-only mount + scratch clone      |
+| **Tokens**      | Environment variables            | Docker secrets (file-mounted)        |
+| **Network**     | iptables firewall (default-deny) | No restrictions (planned)            |
+| **Sandbox**     | Not explicitly enabled           | Not enabled (container boundary)     |
+| **User**        | Non-root (`node`)                | Non-root (`node`)                    |
+| **Config lock** | N/A                             | Root-owned settings.json, chmod 444  |
+| **Permissions** | `--dangerously-skip-permissions` | `--dangerously-skip-permissions`     |
 
-Anthropic's reference locks down the network but leaves repos mounted read-write. My setup locks down the filesystem but leaves the network open. Combining both — read-only mounts, Docker secrets, and an iptables firewall — would cover the full surface.
+Anthropic's reference locks down the network but leaves repos mounted read-write. My setup locks down the filesystem and config self-modification but leaves the network open. Combining both — read-only mounts, Docker secrets, privilege separation, and an iptables firewall — would cover the full surface.
 
 ## The Native Sandbox: A Third Layer
 
@@ -153,7 +182,8 @@ Each layer catches what the others miss:
 | ---------------------------- | ----------------------------------------- | ------- |
 | Read-only `/workspace`       | Host file modification, volume poisoning  | V2      |
 | Docker secrets               | Token exposure in compose config/inspect  | V2      |
-| Immutable settings.json      | Claude can't remove its own deny rules    | V2      |
+| Non-root user (`node`)       | System file deletion, `rm -rf /`          | V2      |
+| Root-owned settings.json     | Claude can't remove its own deny rules    | V2      |
 | Container isolation          | Host filesystem/process access            | V1      |
 | `deny` list in settings.json | PR merging, specific dangerous commands   | V1      |
 | Fine-grained PAT scopes      | Token can't exceed granted permissions    | V1      |
@@ -168,8 +198,6 @@ The container alone still allows network exfiltration via `curl`. The deny list 
 The network firewall is the strongest remaining mitigation. But implementing it means maintaining an allowlist for every domain your tools need — npm, crates.io, pypi.org, GitHub, Graphite, the Claude API, and anything Claude reaches via `WebFetch` for research. Every time you add a new tool or package registry, you update the allowlist. Every time Claude tries to search the web and gets blocked, you debug which domain it needed.
 
 For my setup, where Claude regularly searches documentation and installs packages across languages, that maintenance cost wasn't worth it yet. If you're running Claude on a single codebase with predictable dependencies (a Go service that only needs GitHub and proxy.golang.org), the firewall is straightforward and worth doing. The implementation is in <a href="https://github.com/anthropics/claude-code/blob/main/.devcontainer/init-firewall.sh" target="_blank">Anthropic's reference</a> — about 80 lines of iptables rules.
-
-The other open gap is running as non-root inside the container, which would limit damage if Claude destroys its own container filesystem mid-session. Anthropic's reference runs as the `node` user. I haven't switched yet because several tools (Graphite's config at `/root/.config/`, credential files at `/root/.claude/`) assume root paths in the entrypoint.
 
 ## Quick Start
 
@@ -201,7 +229,15 @@ if [ -n "${TARGET_REPO:-}" ]; then
 fi
 ```
 
-**4. Launch with a target repo:**
+**4. Run as non-root:**
+
+```dockerfile
+# At the end of your Dockerfile:
+RUN mkdir -p /home/node/.claude /scratch && chown -R node:node /home/node /scratch
+# Entrypoint drops to node after writing config
+```
+
+**5. Launch with a target repo:**
 
 ```bash
 TARGET_REPO=my-project docker compose run --rm claude
