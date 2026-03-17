@@ -141,8 +141,8 @@ The key detail is how settings.json gets locked. The entrypoint writes the merge
 
 ```bash
 # In the entrypoint (running as root):
-chown root:node "$HOME/.claude/settings.json"
-chmod 444 "$HOME/.claude/settings.json"
+chown root:node /home/node/.claude/settings.json
+chmod 444 /home/node/.claude/settings.json
 
 # Then drop to node user:
 exec su -s /bin/bash node -- "$@"
@@ -154,15 +154,15 @@ No extra Linux capabilities needed. No `chattr`. Just standard Unix file permiss
 
 A comparison of the approaches:
 
-|                 | Anthropic Reference              | My Setup (V2)                        |
-| --------------- | -------------------------------- | ------------------------------------ |
-| **Repos**       | Bind mount (read-write)          | Read-only mount + scratch clone      |
-| **Tokens**      | Environment variables            | Docker secrets (file-mounted)        |
-| **Network**     | iptables firewall (default-deny) | No restrictions (planned)            |
-| **Sandbox**     | Not explicitly enabled           | Not enabled (container boundary)     |
-| **User**        | Non-root (`node`)                | Non-root (`node`)                    |
-| **Config lock** | N/A                             | Root-owned settings.json, chmod 444  |
-| **Permissions** | `--dangerously-skip-permissions` | `--dangerously-skip-permissions`     |
+|                 | Anthropic Reference              | My Setup (V2)                       |
+| --------------- | -------------------------------- | ----------------------------------- |
+| **Repos**       | Bind mount (read-write)          | Read-only mount + scratch clone     |
+| **Tokens**      | Environment variables            | Docker secrets (file-mounted)       |
+| **Network**     | iptables firewall (default-deny) | No restrictions (planned)           |
+| **Sandbox**     | Not explicitly enabled           | Not enabled (container boundary)    |
+| **User**        | Non-root (`node`)                | Non-root (`node`)                   |
+| **Config lock** | N/A                              | Root-owned settings.json, chmod 444 |
+| **Permissions** | `--dangerously-skip-permissions` | `--dangerously-skip-permissions`    |
 
 Anthropic's reference locks down the network but leaves repos mounted read-write. My setup locks down the filesystem and config self-modification but leaves the network open. Combining both — read-only mounts, Docker secrets, privilege separation, and an iptables firewall — would cover the full surface.
 
