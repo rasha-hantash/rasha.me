@@ -14,7 +14,7 @@ I wanted Claude Code to keep working after my laptop closed. A few specific situ
 - I'm running a long task — a refactor that touches a hundred files, an ingestion pipeline working through a corpus — and I'd rather it not be tied to whether my laptop is awake.
 - I'm on my phone in a meeting and remember a small change I forgot to push. SSH in from Termius, fix it, push it.
 
-A VPS handles all three. Among the cheap always-on options, Hetzner's smallest instance is the most reasonable I've found at **€4.51 per month**.
+A VPS handles all three. Among the cheap always-on options, Hetzner's smallest instance is the most reasonable I've found at **€4.49 per month**.
 
 I had a constraint, though: the setup needed to be secure and low-maintenance. No public SSH on port 22 with fail2ban patched on top, no credentials sprayed across env files, no remembering which IP belongs to which machine. The result should feel about as secure as my laptop and similarly ergonomic.
 
@@ -38,9 +38,9 @@ Three components.
 
 ### Hetzner — Compute
 
-A `cx22` instance: 2 vCPU, 4 GB RAM, 40 GB disk, ~€4.51 per month. The reason I chose Hetzner over DigitalOcean or AWS Lightsail is pricing — the cx22 is roughly half the cost of equivalent instances elsewhere, and it has been reliable for me.
+A `cx23` instance: 2 vCPU, 4 GB RAM, 40 GB disk, ~€4.49 per month. The reason I chose Hetzner over DigitalOcean or AWS Lightsail is pricing — it's roughly half the cost of equivalent instances elsewhere, and it has been reliable for me.
 
-4 GB is enough for Claude Code with a TypeScript LSP and a Next.js dev server, in my experience. For heavier workloads — local LLMs, large test suites — the cx32 (€7.50, 8 GB) is a step up. Hetzner allows resizing without rebuilding, so starting small is reasonable.
+4 GB is enough for Claude Code with a TypeScript LSP and a Next.js dev server, in my experience. For heavier workloads — local LLMs, large test suites — the `cx33` (8 GB, 4 vCPU) is a step up. Hetzner allows resizing without rebuilding, so starting small is reasonable.
 
 ### Tailscale — Network
 
@@ -146,10 +146,10 @@ Claude: Region?
 You:    ash
 
 Claude: VM type?
-        ● cx22  — 2 vCPU / 4 GB — €4.51/mo  ← recommended
-        ○ cx32  — 4 vCPU / 8 GB — €7.50/mo  (if your repos are large)
+        ● cx23  — 2 vCPU / 4 GB — €4.49/mo  ← recommended
+        ○ cx33  — 4 vCPU / 8 GB           (if your repos are large)
 
-You:    cx22
+You:    cx23
 
 Claude: Name? [default: claude-box]
 
@@ -168,8 +168,8 @@ Claude: Two optional add-ons — pick yes if you'll want them later:
 You:    Y / N
 
 Claude: About to do this:
-          VM:        claude-box (cx22, ash)
-          Cost:      €4.51/mo, billed hourly starting now
+          VM:        claude-box (cx23, ash)
+          Cost:      €4.49/mo, billed hourly starting now
           Hardening: disable root login, lock SSH to tailscale0
           Install:   Tailscale, Claude Code (native), tmux, zsh, jq
         Continue?  [Y/n]
@@ -213,11 +213,11 @@ Both rely on the laptop being on Tailscale and reachable. If it isn't, the helpe
 
 ## Costs
 
-The €4.51 monthly fee is the simple part. The more complete picture:
+The €4.49 monthly fee is the simple part. The more complete picture:
 
 | Item | Cost |
 |---|---|
-| Hetzner cx22 VM | €4.51/mo |
+| Hetzner cx23 VM | €4.49/mo |
 | Hetzner snapshots (optional) | ~€0.50/mo |
 | Tailscale | Free (personal tier covers everything) |
 | **Claude API or Max subscription** | **$20–200/mo** |
