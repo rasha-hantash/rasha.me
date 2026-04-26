@@ -1,30 +1,98 @@
 ---
-const sections = [
-  { name: 'PROJECTS', id: 'projects' },
-  { name: 'RESUME', id: 'resume' },
-  { name: 'HACKATHONS', id: 'hackathons' },
+const links = [
+  { name: 'Manifesto', href: '/#about' },
+  { name: 'Writing', href: '/blog' },
+  { name: 'Side Quests', href: '/#projects' },
 ];
 ---
-<nav class="border-b border-black bg-concrete sticky top-0 z-50 px-2 sm:px-4 py-3">
-  <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
-    <div class="flex flex-wrap items-center gap-1">
-      <a href="/" class="btn-brutal text-[10px] py-1 px-3">HOME</a>
-      {sections.map((s) => (
+<nav class="sticky top-0 z-50 border-b border-ink/10 bg-cream/80 backdrop-blur-md">
+  <div class="max-w-7xl mx-auto px-6 md:px-10 py-5 flex items-center justify-between gap-6">
+    <a
+      href="/"
+      aria-label="Rasha Hantash &mdash; home"
+      class="link-quiet inline-flex items-center text-walnut italic"
+      style="font-family: Georgia, serif; font-size: 20px; line-height: 1;"
+    >
+      rasha hantash
+    </a>
+    <div class="hidden md:flex items-center gap-8 text-[13px] tracking-wide">
+      {links.map((l) => (
         <a
-          href={`/#${s.id}`}
-          class="btn-brutal text-[10px] py-1 px-3"
+          href={l.href}
+          class="link-quiet opacity-80 hover:opacity-100"
+          {...(l.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
         >
-          {s.name}
+          {l.name}
         </a>
       ))}
-      <a href="/blog" class="btn-brutal text-[10px] py-1 px-3">
-        BLOG
-      </a>
+      <span class="hairline w-px h-4 bg-ink/20" aria-hidden="true"></span>
+      <div class="flex items-center gap-4 text-ink/70">
+        <a
+          href="mailto:rasha.hantash@protonmail.com"
+          aria-label="Email"
+          class="hover:text-walnut transition-colors"
+        >
+          <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="square" stroke-linejoin="miter" stroke-width="1.4" d="M3 7l9 6 9-6M4 6h16a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V7a1 1 0 011-1z" />
+          </svg>
+        </a>
+        <a
+          href="https://github.com/rasha-hantash"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="GitHub"
+          class="hover:text-walnut transition-colors"
+        >
+          <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.1.79-.25.79-.55 0-.27-.01-1-.02-1.95-3.2.7-3.87-1.54-3.87-1.54-.52-1.34-1.27-1.69-1.27-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.75 2.69 1.24 3.34.95.1-.74.4-1.24.72-1.53-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.18-3.09-.12-.29-.51-1.46.11-3.05 0 0 .96-.31 3.15 1.18a10.9 10.9 0 015.74 0c2.19-1.49 3.15-1.18 3.15-1.18.62 1.59.23 2.76.11 3.05.74.8 1.18 1.83 1.18 3.09 0 4.42-2.69 5.39-5.25 5.68.41.36.78 1.06.78 2.14 0 1.55-.01 2.79-.01 3.17 0 .31.21.66.8.55C20.21 21.39 23.5 17.07 23.5 12 23.5 5.65 18.35.5 12 .5z" />
+          </svg>
+        </a>
+        <a
+          href="https://linkedin.com/in/rasha-hantash"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="LinkedIn"
+          class="hover:text-walnut transition-colors"
+        >
+          <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M20.45 20.45h-3.56v-5.57c0-1.33-.03-3.05-1.86-3.05-1.86 0-2.14 1.45-2.14 2.95v5.67H9.34V9h3.42v1.56h.05c.48-.9 1.64-1.86 3.37-1.86 3.6 0 4.27 2.37 4.27 5.46v6.29zM5.34 7.43a2.07 2.07 0 110-4.14 2.07 2.07 0 010 4.14zm1.78 13.02H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.72v20.56C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.72V1.72C24 .77 23.2 0 22.22 0z" />
+          </svg>
+        </a>
+        <a
+          href="https://x.com/rasha_hantash"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="X"
+          class="hover:text-walnut transition-colors"
+        >
+          <svg class="w-[16px] h-[16px]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+          </svg>
+        </a>
+      </div>
     </div>
-    <div class="flex items-center gap-1">
-      <a href="mailto:rasha.hantash@protonmail.com" class="btn-brutal text-[10px] py-1 px-3" target="_blank" rel="noopener noreferrer">EMAIL</a>
-      <a href="https://github.com/rasha-hantash" class="btn-brutal text-[10px] py-1 px-3" target="_blank" rel="noopener noreferrer">GITHUB</a>
-      <a href="https://linkedin.com/in/rasha-hantash" class="btn-brutal text-[10px] py-1 px-3" target="_blank" rel="noopener noreferrer">LINKEDIN</a>
+    <div class="flex md:hidden items-center gap-4 text-ink/70">
+      <a href="/blog" class="link-quiet opacity-80 text-[12px]">Writing</a>
+      <a href="mailto:rasha.hantash@protonmail.com" aria-label="Email" class="hover:text-walnut transition-colors">
+        <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="square" stroke-linejoin="miter" stroke-width="1.4" d="M3 7l9 6 9-6M4 6h16a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V7a1 1 0 011-1z" />
+        </svg>
+      </a>
+      <a href="https://github.com/rasha-hantash" target="_blank" rel="noopener noreferrer" aria-label="GitHub" class="hover:text-walnut transition-colors">
+        <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.1.79-.25.79-.55 0-.27-.01-1-.02-1.95-3.2.7-3.87-1.54-3.87-1.54-.52-1.34-1.27-1.69-1.27-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.75 2.69 1.24 3.34.95.1-.74.4-1.24.72-1.53-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.18-3.09-.12-.29-.51-1.46.11-3.05 0 0 .96-.31 3.15 1.18a10.9 10.9 0 015.74 0c2.19-1.49 3.15-1.18 3.15-1.18.62 1.59.23 2.76.11 3.05.74.8 1.18 1.83 1.18 3.09 0 4.42-2.69 5.39-5.25 5.68.41.36.78 1.06.78 2.14 0 1.55-.01 2.79-.01 3.17 0 .31.21.66.8.55C20.21 21.39 23.5 17.07 23.5 12 23.5 5.65 18.35.5 12 .5z" />
+        </svg>
+      </a>
+      <a href="https://linkedin.com/in/rasha-hantash" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn" class="hover:text-walnut transition-colors">
+        <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M20.45 20.45h-3.56v-5.57c0-1.33-.03-3.05-1.86-3.05-1.86 0-2.14 1.45-2.14 2.95v5.67H9.34V9h3.42v1.56h.05c.48-.9 1.64-1.86 3.37-1.86 3.6 0 4.27 2.37 4.27 5.46v6.29zM5.34 7.43a2.07 2.07 0 110-4.14 2.07 2.07 0 010 4.14zm1.78 13.02H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.72v20.56C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.72V1.72C24 .77 23.2 0 22.22 0z" />
+        </svg>
+      </a>
+      <a href="https://x.com/rasha_hantash" target="_blank" rel="noopener noreferrer" aria-label="X" class="hover:text-walnut transition-colors">
+        <svg class="w-[16px] h-[16px]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+        </svg>
+      </a>
     </div>
   </div>
 </nav>

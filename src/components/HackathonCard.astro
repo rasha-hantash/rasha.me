@@ -3,20 +3,38 @@ interface Props {
   title: string;
   status: string;
   description: string;
-  tags: string[];
+  event?: string;
+  href?: string;
+  index?: number;
 }
 
-const { title, status, description, tags } = Astro.props;
+const { title, status, description, event, href, index } = Astro.props;
+const num = typeof index === 'number' ? String(index).padStart(2, '0') : null;
+const Tag = href ? 'a' : 'div';
+const linkProps = href
+  ? { href, target: '_blank', rel: 'noopener noreferrer' }
+  : {};
 ---
-<div class="grid-cell group transition-colors">
-  <div class="flex items-baseline justify-between gap-2 mb-3">
-    <h3 class="text-sm font-bold uppercase tracking-wide">{title}</h3>
-    <span class="text-[10px] font-bold uppercase tracking-wider text-accent whitespace-nowrap">{status}</span>
-  </div>
-  <p class="text-sm mb-4">{description}</p>
-  <div class="flex flex-wrap gap-1">
-    {tags.map((tag) => (
-      <span class="tag">{tag}</span>
-    ))}
-  </div>
-</div>
+<li class="group">
+  <Tag
+    {...linkProps}
+    class={`grid grid-cols-[auto,1fr,auto] items-baseline gap-x-5 md:gap-x-8 py-6 md:py-7 ${href ? 'transition-colors' : ''}`}
+  >
+    {num && <span class="num-marker text-walnut/70 self-baseline">{num}</span>}
+    <div class="flex flex-col md:flex-row md:items-baseline gap-1 md:gap-4 min-w-0">
+      <h3 class={`text-base md:text-lg font-light tracking-tight whitespace-nowrap ${href ? 'group-hover:text-walnut transition-colors' : ''} text-ink`}>
+        {title}
+      </h3>
+      <span class="hidden md:inline text-ink/30 select-none" aria-hidden="true">&middot;</span>
+      <p class="text-sm md:text-[15px] font-light leading-snug text-ink/65">
+        {description}
+      </p>
+    </div>
+    <div class="flex items-center gap-4 self-center">
+      {event && (
+        <span class="hidden md:inline num-marker text-ink/50">{event}</span>
+      )}
+      <span class="status">{status}</span>
+    </div>
+  </Tag>
+</li>

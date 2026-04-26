@@ -5,24 +5,31 @@ interface Props {
   pubDate: Date;
   slug: string;
   tags?: string[];
+  index?: number;
 }
 
-const { title, description, pubDate, slug, tags = [] } = Astro.props;
+const { title, description, pubDate, slug, tags = [], index } = Astro.props;
 const formattedDate = new Date(pubDate).toISOString().split('T')[0];
+const num = typeof index === 'number' ? String(index).padStart(2, '0') : null;
 ---
-<a href={`/blog/${slug}`} class="grid-cell block group transition-colors">
-  <div class="crosshair top-[6px] right-[6px]"></div>
-  <p class="text-[10px] uppercase tracking-widest opacity-50 mb-1">{formattedDate}</p>
-  <h3 class="text-sm font-bold uppercase tracking-wide mb-2 group-hover:text-accent transition-colors">{title}</h3>
-  <p class="text-sm mb-3">{description}</p>
-  {tags.length > 0 && (
-    <div class="flex flex-wrap gap-1">
-      {tags.map((tag) => (
-        <span class="tag">{tag}</span>
-      ))}
+<li class="border-b border-ink/10 group">
+  <a href={`/blog/${slug}`} class="block py-8 md:py-10">
+    <div class="flex items-baseline gap-4 mb-3">
+      {num && <span class="num-marker text-walnut/80">{num}</span>}
+      <time class="num-marker text-ink/55" datetime={formattedDate}>{formattedDate}</time>
     </div>
-  )}
-  <div class="mt-3 text-[10px] uppercase tracking-widest text-accent">
-    READ POST &rarr;
-  </div>
-</a>
+    <h3 class="text-xl md:text-2xl font-light tracking-tight text-ink group-hover:text-walnut transition-colors">
+      {title}
+    </h3>
+    <p class="mt-3 text-base font-light leading-relaxed text-ink/65 max-w-2xl">
+      {description}
+    </p>
+    {tags.length > 0 && (
+      <div class="flex flex-wrap gap-2 mt-5">
+        {tags.map((tag) => (
+          <span class="tag">{tag}</span>
+        ))}
+      </div>
+    )}
+  </a>
+</li>

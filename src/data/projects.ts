@@ -1,30 +1,38 @@
 export const projects = [
   {
-    title: 'HA Fullstack Application',
-    href: 'https://github.com/rasha-hantash/fullstack-traba-copy-cat',
-    tags: ['NEXTJS', 'GO', 'TERRAFORM', 'AWS'],
-    status: 'DEPRECATED',
-    description: 'Multi-tenant platform with role-based access control. Go backend, React frontend, deployed on AWS with Terraform infrastructure as code.',
+    title: 'technical-rag',
+    href: 'https://github.com/rasha-hantash/technical-rag',
+    description:
+      'Paste code, ask if it aligns with the books on your shelf — citations down to chapter, section, and page.',
   },
   {
-    title: 'Fan-out Messaging System',
-    href: 'https://github.com/rasha-hantash/golang/tree/main/distributedsystems',
-    tags: ['GO', 'RABBITMQ', 'DISTRIBUTED SYSTEMS'],
-    status: 'OPEN SOURCE',
-    description: 'High-throughput message processing system built on RabbitMQ with fan-out messaging and role-based access control.',
+    title: 'cove',
+    href: 'https://github.com/rasha-hantash/cove',
+    description:
+      'Rust CLI that orchestrates multiple Claude Code sessions inside tmux.',
   },
   {
-    title: 'Payments And Ledgering',
+    title: 'claude-vps-setup',
+    href: 'https://github.com/rasha-hantash/claude-vps-setup',
+    description:
+      'Untether Claude Code from your laptop — start a task before your commute, walk into the office to a finished branch.',
+  },
+  {
+    title: 'payments',
     href: 'https://github.com/rasha-hantash/payments',
-    tags: ['GO', 'POSTGRESQL', 'DOUBLE-ENTRY LEDGER'],
-    status: 'OPEN SOURCE',
-    description: 'Double-entry ledger system for tracking payments and balances with PostgreSQL. Implements core accounting primitives.',
+    description:
+      'Double-entry ledger primitives for tracking payments and balances on Postgres.',
   },
   {
-    title: 'Algo-Trader',
-    href: 'https://github.com/rasha-hantash/algo-trader',
-    tags: ['PYTHON', 'TRADING'],
-    status: 'WIP',
-    description: 'Algorithmic trading bot with real-time market data integration and automated trade execution.',
+    title: 'fan-out-messaging',
+    href: 'https://github.com/rasha-hantash/golang/tree/main/distributedsystems',
+    description:
+      'High-throughput message processing on RabbitMQ — fan-out routing with role-scoped consumers.',
+  },
+  {
+    title: 'fullstack-traba-copy-cat',
+    href: 'https://github.com/rasha-hantash/fullstack-traba-copy-cat',
+    description:
+      'Multi-tenant platform with RBAC — Go backend, React frontend, AWS via Terraform.',
   },
 ];

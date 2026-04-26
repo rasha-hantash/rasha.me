@@ -3,10 +3,12 @@
 @tailwind utilities;
 
 :root {
-  --bg: #D1D1D1;
-  --accent: #FF4500;
-  --text: #000000;
-  --border: #000000;
+  --cream: #F5F3ED;
+  --cream-2: #EFECE4;
+  --cream-3: #E8E5DC;
+  --walnut: #7A4B29;
+  --ink: #111111;
+  --grid-color: rgba(17, 17, 17, 0.04);
 }
 
 * {
@@ -21,20 +23,20 @@ html {
 }
 
 body {
-  background-color: var(--bg);
-  color: var(--text);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 14px;
+  background-color: var(--cream);
+  color: var(--ink);
+  font-family: 'Inter Variable', 'Inter', system-ui, sans-serif;
+  font-weight: 300;
+  font-size: 16px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
-  overflow-wrap: break-word;
-  word-wrap: break-word;
 }
 
 ::selection {
-  background-color: var(--accent);
-  color: #000;
+  background-color: var(--walnut);
+  color: var(--cream);
 }
 
 a {
@@ -42,14 +44,127 @@ a {
   text-decoration: none;
 }
 
-/* Shiki code block overrides */
+/* Subtle grid background — fixed behind content */
+.bg-grid::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-size: 60px 60px;
+  background-image:
+    linear-gradient(to right, var(--grid-color) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-color) 1px, transparent 1px);
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* Eyebrow — small uppercase label */
+.eyebrow {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--walnut);
+}
+
+.eyebrow--ink {
+  color: var(--ink);
+  opacity: 0.7;
+}
+
+.eyebrow--cream {
+  color: var(--cream);
+  opacity: 0.85;
+}
+
+/* Section title — light weight, tight tracking */
+.section-title {
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 300;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+}
+
+/* Display heading — used in hero */
+.display {
+  font-size: clamp(2.75rem, 7vw, 5rem);
+  font-weight: 300;
+  letter-spacing: -0.035em;
+  line-height: 0.95;
+}
+
+/* Hairline divider */
+.hairline {
+  height: 1px;
+  background-color: var(--ink);
+  opacity: 0.12;
+}
+
+.hairline--cream {
+  background-color: var(--cream);
+  opacity: 0.18;
+}
+
+/* Quiet link with walnut hover and underline */
+.link-quiet {
+  position: relative;
+  transition: color 150ms ease;
+}
+
+.link-quiet:hover {
+  color: var(--walnut);
+}
+
+.link-underline {
+  border-bottom: 1px solid currentColor;
+  padding-bottom: 2px;
+  transition: color 150ms ease, border-color 150ms ease;
+}
+
+.link-underline:hover {
+  color: var(--walnut);
+  border-color: var(--walnut);
+}
+
+/* Tag pill — restrained, walnut hairline */
+.tag {
+  display: inline-block;
+  padding: 3px 10px;
+  border: 1px solid rgba(122, 75, 41, 0.5);
+  color: var(--walnut);
+  font-size: 10px;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  border-radius: 0;
+}
+
+.tag--cream {
+  border-color: rgba(245, 243, 237, 0.35);
+  color: var(--cream);
+  opacity: 0.85;
+}
+
+/* Small uppercase status indicator */
+.status {
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--walnut);
+  white-space: nowrap;
+}
+
+/* Code blocks (blog posts) */
 pre.astro-code {
-  border: 1px solid var(--border);
-  padding: 1rem;
+  border: 1px solid rgba(17, 17, 17, 0.12);
+  background-color: var(--cream-2) !important;
+  padding: 1rem 1.25rem;
   overflow-x: auto;
   font-size: 13px;
-  line-height: 1.5;
+  line-height: 1.6;
   max-width: calc(100vw - 2rem);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
 }
 
 @media (min-width: 640px) {
@@ -59,5 +174,55 @@ pre.astro-code {
 }
 
 code {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.9em;
+}
+
+/* Numeric / measurement marker — clinical-futurism flourish */
+.num-marker {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Hero olive branch — reveal from base upward (transparent PNG) */
+.olive-branch {
+  opacity: 0;
+  clip-path: inset(100% 0 0 0);
+  filter: saturate(1.32);
+  animation: olive-reveal 2.4s cubic-bezier(0.4, 0, 0.2, 1) 0.4s forwards;
+  will-change: opacity, clip-path;
+}
+
+@keyframes olive-reveal {
+  0%   { opacity: 0;    clip-path: inset(100% 0 0 0); }
+  25%  { opacity: 0.5; }
+  100% { opacity: 0.78; clip-path: inset(0 0 0 0); }
+}
+
+@media (max-width: 767px) {
+  .olive-branch {
+    animation-name: olive-reveal-mobile;
+  }
+}
+
+@keyframes olive-reveal-mobile {
+  0%   { opacity: 0;    clip-path: inset(100% 0 0 0); }
+  25%  { opacity: 0.22; }
+  100% { opacity: 0.35; clip-path: inset(0 0 0 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .olive-branch {
+    opacity: 0.78;
+    clip-path: none;
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) and (max-width: 767px) {
+  .olive-branch {
+    opacity: 0.35;
+  }
 }

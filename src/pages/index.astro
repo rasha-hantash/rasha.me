@@ -1,49 +1,22 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
-import StatusBar from '../components/StatusBar.astro';
 import Nav from '../components/Nav.astro';
 import Hero from '../components/Hero.astro';
 import Manifesto from '../components/Manifesto.astro';
-import TechExpertise from '../components/TechExpertise.astro';
+import FieldNotes from '../components/FieldNotes.astro';
 import Projects from '../components/Projects.astro';
-import Resume from '../components/Resume.astro';
-import Hackathons from '../components/Hackathons.astro';
+import Miscellaneous from '../components/Miscellaneous.astro';
 import Footer from '../components/Footer.astro';
 ---
 <BaseLayout>
-  <StatusBar />
   <Nav />
 
-  <main class="max-w-7xl mx-auto px-2 md:px-4 py-4">
-    <div class="grid grid-cols-1 md:grid-cols-12 gap-0">
-      <!-- Row 1: Hero -->
-      <div class="md:col-span-12">
-        <Hero />
-      </div>
-
-      <!-- Row 2: Manifesto + Tech Expertise -->
-      <div class="md:col-span-6">
-        <Manifesto />
-      </div>
-      <div class="md:col-span-6">
-        <TechExpertise />
-      </div>
-
-      <!-- Row 3: Projects (full width) -->
-      <div class="md:col-span-12">
-        <Projects />
-      </div>
-
-      <!-- Row 4: Resume (full width) -->
-      <div class="md:col-span-12">
-        <Resume />
-      </div>
-
-      <!-- Row 5: Hackathons (full width) -->
-      <div class="md:col-span-12">
-        <Hackathons />
-      </div>
-    </div>
+  <main class="flex-1">
+    <Hero />
+    <Manifesto />
+    <FieldNotes />
+    <Projects />
+    <Miscellaneous />
   </main>
 
   <Footer />
