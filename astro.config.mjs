@@ -5,7 +5,7 @@ export default defineConfig({
   integrations: [tailwind()],
   markdown: {
     shikiConfig: {
-      theme: 'vitesse-dark',
+      theme: 'vitesse-light',
     },
   },
 });
