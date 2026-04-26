@@ -1,8 +1,7 @@
 ---
+import '@fontsource-variable/inter';
 import '@fontsource/jetbrains-mono/400.css';
-import '@fontsource/jetbrains-mono/700.css';
 import '../styles/global.css';
-import '../styles/brutalist.css';
 
 interface Props {
   title?: string;
@@ -20,9 +19,9 @@ const { title = 'Rasha Hantash', description = 'Senior Software Engineer' } = As
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <title>{title}</title>
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%23000'/><text x='50%25' y='55%25' dominant-baseline='middle' text-anchor='middle' fill='%23FF4500' font-family='monospace' font-size='20'>R</text></svg>" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%23F5F3ED'/><text x='50%25' y='58%25' dominant-baseline='middle' text-anchor='middle' fill='%237A4B29' font-family='Georgia,serif' font-style='italic' font-weight='400' font-size='20'>r</text></svg>" />
   </head>
-  <body class="min-h-screen flex flex-col">
+  <body class="min-h-screen flex flex-col bg-cream text-ink">
     <slot />
   </body>
 </html>

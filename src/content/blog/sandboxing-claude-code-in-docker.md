@@ -125,8 +125,11 @@ V1 runs Claude as root inside the container. Claude can `rm -rf /usr/bin/` and d
 **Fix: Privilege separation.** The entrypoint runs as root to write config files (credentials, settings.json, Graphite auth), then drops to the `node` user (uid 1000) before launching Claude. This follows <a href="https://github.com/anthropics/claude-code/tree/main/.devcontainer" target="_blank">Anthropic's reference devcontainer</a> pattern — install as root, run as non-root.
 
 ```dockerfile
-# Install everything as root
-RUN npm install -g @anthropic-ai/claude-code @withgraphite/graphite-cli
+# Install Claude Code via native installer, copy to node user's paths
+RUN curl -fsSL https://claude.ai/install.sh | bash -s latest \
+    && mkdir -p /home/node/.local/bin /home/node/.local/share \
+    && cp /root/.local/bin/claude /home/node/.local/bin/claude \
+    && cp -r /root/.local/share/claude /home/node/.local/share/claude
 
 # Create directories, hand ownership to node
 RUN mkdir -p /home/node/.claude /scratch \
@@ -137,16 +140,21 @@ ENTRYPOINT ["/entrypoint.sh"]
 CMD ["claude", "--dangerously-skip-permissions"]
 ```
 
-The key detail is how settings.json gets locked. The entrypoint writes the merged settings.json as root, then sets ownership to `root:node` with `chmod 444`. Since Claude runs as `node`, it cannot `chmod`, `chown`, or overwrite the file — the deny rules are permanently enforced for the duration of the session.
+The entrypoint does three things as root before dropping to `node`:
 
 ```bash
-# In the entrypoint (running as root):
+# 1. Fix volume ownership (named volumes mount as root)
+chown node:node /scratch
+
+# 2. Lock settings.json so Claude can't remove its own deny rules
 chown root:node /home/node/.claude/settings.json
 chmod 444 /home/node/.claude/settings.json
 
-# Then drop to node user:
+# 3. Drop to node user
 exec su -s /bin/bash node -- "$@"
 ```
+
+Since Claude runs as `node`, it cannot `chmod`, `chown`, or overwrite `settings.json` — the deny rules are permanently enforced for the duration of the session.
 
 No extra Linux capabilities needed. No `chattr`. Just standard Unix file permissions, enforced by the kernel.
 
@@ -156,6 +164,7 @@ A comparison of the approaches:
 
 |                 | Anthropic Reference              | My Setup (V2)                       |
 | --------------- | -------------------------------- | ----------------------------------- |
+| **Install**     | npm (in Dockerfile)              | Native installer (auto-updates)     |
 | **Repos**       | Bind mount (read-write)          | Read-only mount + scratch clone     |
 | **Tokens**      | Environment variables            | Docker secrets (file-mounted)       |
 | **Network**     | iptables firewall (default-deny) | No restrictions (planned)           |
@@ -232,9 +241,16 @@ fi
 **4. Run as non-root:**
 
 ```dockerfile
-# At the end of your Dockerfile:
+# In your Dockerfile — install as root, set up for node user:
+RUN curl -fsSL https://claude.ai/install.sh | bash -s latest \
+    && mkdir -p /home/node/.local/bin /home/node/.local/share \
+    && cp /root/.local/bin/claude /home/node/.local/bin/claude \
+    && cp -r /root/.local/share/claude /home/node/.local/share/claude
 RUN mkdir -p /home/node/.claude /scratch && chown -R node:node /home/node /scratch
-# Entrypoint drops to node after writing config
+
+# In your entrypoint — fix volume ownership, lock config, drop to node:
+# chown node:node /scratch && chown root:node settings.json && chmod 444 settings.json
+# exec su -s /bin/bash node -- "$@"
 ```
 
 **5. Launch with a target repo:**
