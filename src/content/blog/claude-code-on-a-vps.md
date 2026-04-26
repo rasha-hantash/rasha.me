@@ -53,11 +53,13 @@ What this means in practice:
 - Adding a new device — a new laptop, a phone, a friend's machine you want to share access with — is one paste of a key in their Tailscale app.
 - Free for personal use up to 100 devices.
 
-### `claude setup-token` — Auth
+### Auth — `claude` over SSH
 
 Of the three components, authentication on a fresh Linux VPS was the part I expected to be hardest. Claude Code on macOS uses the system Keychain for OAuth credentials; Linux has no Keychain, and a fresh VPS has no browser to complete an OAuth flow. I was prepared to write a script that extracts the token from my Keychain and copies it across, or to fall back to an API key and lose the predictable subscription pricing.
 
-Anthropic shipped exactly the tool needed: `claude setup-token`. Run it once on the VPS, paste the token Claude Code prints, and authentication is complete. It's long-lived, doesn't need a browser, and uses your existing Claude subscription — no separate API key, no separate bill.
+It turns out Claude Code's first-run flow already handles this. On the VPS, run `claude` over SSH; it prints a login URL. Paste the URL into your laptop's browser, sign in, and Claude Code shows a code. Paste that code back into the SSH terminal. Credentials are saved to `~/.claude/.credentials.json` on the VPS, and subsequent invocations use them directly. No API key, no separate bill — just your existing Claude subscription.
+
+(There's also `claude setup-token` for CI use, but that's a different flow: it prints a long-lived token without saving it, expecting you to set it as the `CLAUDE_CODE_OAUTH_TOKEN` env var in a secrets manager. For an interactive single-user VPS, plain `claude` is simpler.)
 
 ## Setup
 
@@ -67,8 +69,8 @@ I worked through the setup manually first to understand each step, then automate
 2. Create a Tailscale account, generate a reusable auth key (browser)
 3. `hcloud server create` with your SSH key
 4. SSH in as root via the public IP
-5. Install Tailscale, join the tailnet, lock SSH to the `tailscale0` interface, disable root login, create a non-root user, install Node, Claude Code, `gh`, `gt`, and configure dotfiles
-6. Run `claude setup-token`, paste the token
+5. Install Tailscale, join the tailnet, lock SSH to the `tailscale0` interface, disable root login, create a non-root user, install Claude Code, and configure dotfiles
+6. Run `claude` and complete OAuth via your laptop's browser
 7. Verify the laptop can reach the box via the Tailscale hostname
 8. Set up the phone (install Termius, add the host)
 
@@ -169,7 +171,7 @@ Claude: About to do this:
           VM:        claude-box (cx22, ash)
           Cost:      €4.51/mo, billed hourly starting now
           Hardening: disable root login, lock SSH to tailscale0
-          Install:   Tailscale, Node 20, Claude Code, gh, gt, tmux, zsh
+          Install:   Tailscale, Claude Code (native), tmux, zsh, jq
         Continue?  [Y/n]
 
 You:    Y
@@ -179,7 +181,7 @@ Claude: [1/6] Provisioning VM... ✓ 137.184.42.91 in 47s
         [3/6] Copying bootstrap script... ✓
         [4/6] Running bootstrap (~3 min)...
               → Tailscale joined: claude-box.tail-abc123.ts.net
-              → Installed: Node 20, Claude Code 2.1.112, gh, gt, zsh
+              → Installed: Claude Code (native), zsh, tmux, jq
               → SSH hardened
         [5/6] Verifying Tailscale connectivity from laptop... ✓
         [6/6] Wrote .setup-state.json
@@ -188,8 +190,8 @@ Claude: [1/6] Provisioning VM... ✓ 137.184.42.91 in 47s
         SSH:       ssh agent@claude-box.tail-abc123.ts.net
         Phone:     Termius → host = claude-box.tail-abc123.ts.net
 
-        One more step on the VPS — `claude setup-token` to authenticate:
-          ssh agent@claude-box.tail-abc123.ts.net "claude setup-token"
+        One more step on the VPS — run `claude` to complete OAuth:
+          ssh agent@claude-box.tail-abc123.ts.net -t claude
 
         Suggested next: /add-paper (sets up the Paper Desktop bridge — see Caveats)
 ```
@@ -228,16 +230,19 @@ A few constraints worth knowing.
 
 **Paper Desktop requires the laptop to be on.** [Paper Desktop](https://paper.design) is a design tool that exposes its canvas to Claude Code via a local MCP server, so Claude can read and write designs directly. The server binds to `127.0.0.1` only and rejects requests with non-localhost `Host` headers (I verified this experimentally). The only way to reach it from the VPS is an SSH reverse tunnel back to the laptop. That works, but it requires the laptop to be awake, on Tailscale, and running Paper Desktop. Phone-only workflows can't use Paper. The installer offers an `/add-paper` command that sets up the tunnel via `autossh` for users who want it.
 
-**Credentials live on a cloud machine.** Even with `claude setup-token`, your auth token sits on a rented box that you don't physically control. Tailscale-only access helps — nothing on the public internet can probe it — but it's still a remote machine. I'd avoid putting credentials on a VPS that I wouldn't put on any rented server.
+**Credentials live on a cloud machine.** Your auth token sits in `~/.claude/.credentials.json` on a rented box that you don't physically control. Tailscale-only access helps — nothing on the public internet can probe it — but it's still a remote machine. I'd avoid putting credentials on a VPS that I wouldn't put on any rented server.
 
 **Transcripts aren't synced automatically.** Claude Code stores per-project session JSONLs in `~/.claude/projects/`. Sessions started on the laptop won't appear in `claude --resume` on the VPS. A one-shot `rsync -av ~/.claude/projects/ agent@claude-box:.claude/projects/` is enough if the history matters. I don't sync them — VPS sessions tend to start fresh, which fits how I use the box anyway.
+
+**HTTPS dev previews need extra setup.** By default the VPS is locked to Tailscale — the public internet can't reach it. That's the right default for solo work, but some workflows need a public HTTPS URL: OAuth callbacks (most providers require HTTPS redirect URIs), webhooks from Stripe / GitHub / Slack, mobile testing on real devices for service workers and other HTTPS-only browser APIs, and sharing a preview link with someone not on your tailnet. The installer offers an `/add-https` command that layers in Caddy, opens UFW for ports 80/443, and reverse-proxies a domain you own to a dev server port — Caddy handles the Let's Encrypt cert automatically. The command is wired but untested end-to-end, so file an issue if it breaks on first run.
 
 ## What's Next
 
 The installer is at an early version. Remaining work I have planned:
 
-- Inline `claude setup-token` as the final installer step (currently it's a manual action after setup completes)
+- Inline the `claude` first-run OAuth as the final installer step (currently it's a manual action after setup completes)
 - Document the Paper bridge well enough that someone who has never written a launchd unit can ship it
+- Test `/add-https` against a real VPS end-to-end and fix whatever breaks
 - Test the install path on a non-macOS laptop
 
 If you want to try the setup, the repo is <a href="https://github.com/rasha-hantash/claude-vps-setup" target="_blank">here</a>. Issues and corrections are welcome — I'd like this to become a reliable reference for running Claude Code on a VPS, and at the moment my testing only covers my own laptop.
