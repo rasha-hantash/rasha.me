@@ -2,14 +2,31 @@
 import ProjectCard from './ProjectCard.astro';
 import { projects } from '../data/projects';
 ---
-<div class="grid-cell" id="projects">
-  <div class="mb-1">
-    <p class="section-label">OUTPUT // SYSTEMS</p>
-    <h2 class="section-title mb-0">Projects</h2>
-  </div>
-  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-    {projects.map((p) => (
-      <ProjectCard title={p.title} href={p.href} tags={p.tags} description={p.description} status={p.status} />
+<section id="projects" class="px-6 md:px-10 py-24 md:py-32 max-w-7xl mx-auto">
+  <header class="flex items-end justify-between gap-8 mb-12 md:mb-16">
+    <div>
+      <span class="eyebrow">Selected Work</span>
+      <h2 class="section-title mt-6">Projects</h2>
+    </div>
+    <span class="num-marker text-ink/50 hidden md:inline">
+      {String(projects.length).padStart(2, '0')} &nbsp;repos
+    </span>
+  </header>
+
+  <p class="text-sm font-light text-ink/55 mb-8 md:mb-10 max-w-xl">
+    Open-source things I keep coming back to.
+  </p>
+
+  <div class="hairline mb-0" aria-hidden="true"></div>
+
+  <ul class="flex flex-col">
+    {projects.map((p, i) => (
+      <ProjectCard
+        title={p.title}
+        href={p.href}
+        description={p.description}
+        index={i + 1}
+      />
     ))}
-  </div>
-</div>
+  </ul>
+</section>

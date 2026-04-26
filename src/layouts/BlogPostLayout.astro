@@ -1,6 +1,7 @@
 ---
 import BaseLayout from './BaseLayout.astro';
 import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
 
 const { frontmatter } = Astro.props;
 const { title, pubDate, description, tags = [] } = frontmatter;
@@ -8,112 +9,134 @@ const formattedDate = new Date(pubDate).toISOString().split('T')[0];
 ---
 <BaseLayout title={`${title} | Rasha Hantash`} description={description}>
   <Nav />
-  <div class="max-w-3xl mx-auto px-2 sm:px-4 py-8 sm:py-12 w-full min-w-0 overflow-hidden">
 
-    <article class="grid-cell bracket-corners bracket-corners-bottom mt-6 min-w-0 overflow-hidden">
-      <!-- Metadata -->
-      <div class="mb-6 border-b border-black pb-4">
-        <p class="section-label mb-1">PUBLISHED {formattedDate}</p>
-        <h1 class="text-lg sm:text-2xl font-bold uppercase tracking-wide">{title}</h1>
+  <main class="flex-1">
+    <article class="max-w-3xl mx-auto px-6 md:px-10 pt-20 md:pt-28 pb-24">
+      <header class="mb-12 md:mb-16">
+        <div class="flex items-center gap-4 mb-8">
+          <span class="num-marker text-walnut/80">Field Note</span>
+          <span class="hairline w-12 bg-ink/30" aria-hidden="true"></span>
+          <time class="num-marker text-ink/55" datetime={formattedDate}>{formattedDate}</time>
+        </div>
+        <h1 class="text-4xl md:text-5xl font-light tracking-tight leading-[1.1]">
+          {title}
+        </h1>
+        {description && (
+          <p class="mt-6 text-lg font-light text-ink/65 leading-relaxed max-w-2xl">
+            {description}
+          </p>
+        )}
         {tags.length > 0 && (
-          <div class="flex flex-wrap gap-2 mt-3">
+          <div class="flex flex-wrap gap-2 mt-8">
             {tags.map((tag: string) => (
               <span class="tag">{tag}</span>
             ))}
           </div>
         )}
-      </div>
+      </header>
 
-      <!-- Content -->
-      <div class="prose-brutal min-w-0">
+      <div class="hairline mb-12" aria-hidden="true"></div>
+
+      <div class="prose-mid min-w-0">
         <slot />
       </div>
-    </article>
 
-    <div class="mt-8 text-center">
-      <a href="/blog" class="btn-brutal">&larr; ALL POSTS</a>
-    </div>
-  </div>
+      <div class="mt-20 pt-8 border-t border-ink/10">
+        <a href="/blog" class="text-[12px] uppercase tracking-eyebrow link-underline">&larr; All writing</a>
+      </div>
+    </article>
+  </main>
+
+  <Footer />
 </BaseLayout>
 
 <style>
-  .prose-brutal :global(h2) {
-    font-size: 18px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-top: 2rem;
+  .prose-mid {
+    font-size: 17px;
+    line-height: 1.8;
+    color: rgba(17, 17, 17, 0.85);
+    font-weight: 300;
+  }
+  .prose-mid :global(h2) {
+    font-size: 1.625rem;
+    font-weight: 400;
+    letter-spacing: -0.015em;
+    margin-top: 2.75rem;
     margin-bottom: 0.75rem;
-    padding-bottom: 0.25rem;
-    border-bottom: 1px solid #000;
+    color: var(--ink);
   }
-  .prose-brutal :global(h3) {
-    font-size: 16px;
-    font-weight: 700;
-    text-transform: uppercase;
-    margin-top: 1.5rem;
+  .prose-mid :global(h3) {
+    font-size: 1.25rem;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    margin-top: 2rem;
     margin-bottom: 0.5rem;
+    color: var(--ink);
   }
-  .prose-brutal :global(p) {
-    margin-bottom: 1rem;
+  .prose-mid :global(p) {
+    margin-bottom: 1.25rem;
   }
-  .prose-brutal :global(ul),
-  .prose-brutal :global(ol) {
-    margin-bottom: 1rem;
+  .prose-mid :global(ul),
+  .prose-mid :global(ol) {
+    margin-bottom: 1.25rem;
     padding-left: 1.5rem;
   }
-  .prose-brutal :global(li) {
-    margin-bottom: 0.25rem;
+  .prose-mid :global(li) {
+    margin-bottom: 0.375rem;
   }
-  .prose-brutal :global(code:not(pre code)) {
-    background-color: rgba(0, 0, 0, 0.08);
+  .prose-mid :global(code:not(pre code)) {
+    background-color: var(--cream-2);
     padding: 2px 6px;
-    font-size: 12px;
-    border: 1px solid rgba(0, 0, 0, 0.15);
-    word-break: break-all;
+    font-size: 0.9em;
+    border: 1px solid rgba(17, 17, 17, 0.1);
+    border-radius: 0;
+    word-break: break-word;
   }
-  .prose-brutal :global(blockquote) {
-    border-left: 3px solid var(--accent);
-    padding-left: 1rem;
-    margin: 1rem 0;
-    opacity: 0.85;
+  .prose-mid :global(blockquote) {
+    border-left: 2px solid var(--walnut);
+    padding-left: 1.25rem;
+    margin: 1.5rem 0;
+    color: rgba(17, 17, 17, 0.7);
+    font-style: italic;
   }
-  .prose-brutal :global(a) {
-    color: var(--accent);
-    text-decoration: underline;
-    text-underline-offset: 2px;
+  .prose-mid :global(a) {
+    color: var(--walnut);
+    border-bottom: 1px solid rgba(122, 75, 41, 0.4);
+    transition: border-color 150ms ease;
   }
-  .prose-brutal :global(a:hover) {
-    background-color: var(--accent);
-    color: #000;
-    text-decoration: none;
+  .prose-mid :global(a:hover) {
+    border-bottom-color: var(--walnut);
   }
-  .prose-brutal :global(table) {
+  .prose-mid :global(hr) {
+    border: 0;
+    height: 1px;
+    background-color: rgba(17, 17, 17, 0.12);
+    margin: 2.5rem 0;
+  }
+  .prose-mid :global(table) {
     border-collapse: collapse;
-    margin: 1rem 0;
-    font-size: 12px;
+    margin: 1.5rem 0;
+    font-size: 14px;
     display: block;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     max-width: 100%;
   }
-  .prose-brutal :global(th),
-  .prose-brutal :global(td) {
-    padding: 0.35rem 0.5rem;
-    border: 1px solid rgba(0, 0, 0, 0.2);
+  .prose-mid :global(th),
+  .prose-mid :global(td) {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid rgba(17, 17, 17, 0.15);
     text-align: left;
+    font-weight: 300;
   }
-  .prose-brutal :global(th) {
-    font-weight: 700;
-    background-color: rgba(0, 0, 0, 0.05);
+  .prose-mid :global(th) {
+    font-weight: 500;
+    background-color: var(--cream-2);
   }
   @media (min-width: 640px) {
-    .prose-brutal :global(table) {
-      font-size: 14px;
-    }
-    .prose-brutal :global(th),
-    .prose-brutal :global(td) {
-      padding: 0.5rem 1rem;
+    .prose-mid :global(th),
+    .prose-mid :global(td) {
+      padding: 0.625rem 1rem;
     }
   }
 </style>

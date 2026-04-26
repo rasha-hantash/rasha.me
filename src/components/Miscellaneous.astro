@@ -1,0 +1,40 @@
+---
+import HackathonCard from './HackathonCard.astro';
+import { hackathons } from '../data/hackathons';
+---
+<section id="miscellaneous">
+  <div class="px-6 md:px-10 py-20 md:py-24 max-w-7xl mx-auto">
+    <span class="eyebrow">Miscellaneous</span>
+
+    <div class="mt-12 md:mt-16">
+      <h2 class="section-title">Advising</h2>
+      <p class="mt-8 text-lg md:text-xl font-light max-w-3xl leading-relaxed text-ink/80">
+        Advised a pre-seed founder through fundraise and early build &mdash;
+        shaping the memo, onboarding their first customer, and setting up an
+        AI-forward intelligence layer to shape how the company grows from day one.
+      </p>
+    </div>
+
+    <div class="mt-20 md:mt-24">
+      <header class="flex items-end justify-between gap-8 mb-10 md:mb-12">
+        <h2 class="section-title">Hackathons</h2>
+        <span class="num-marker text-ink/50 hidden md:inline">
+          {String(hackathons.length).padStart(2, '0')} &nbsp;entries
+        </span>
+      </header>
+
+      <ul class="flex flex-col">
+        {hackathons.map((h, i) => (
+          <HackathonCard
+            title={h.title}
+            status={h.status}
+            description={h.description}
+            event={h.event}
+            href={h.href}
+            index={i + 1}
+          />
+        ))}
+      </ul>
+    </div>
+  </div>
+</section>

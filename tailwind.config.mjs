@@ -4,11 +4,21 @@ export default {
   theme: {
     extend: {
       colors: {
-        concrete: '#D1D1D1',
-        accent: '#FF4500',
+        cream: '#F5F3ED',
+        'cream-2': '#EFECE4',
+        'cream-3': '#E8E5DC',
+        walnut: '#7A4B29',
+        ink: '#111111',
       },
       fontFamily: {
-        mono: ['JetBrains Mono', 'monospace'],
+        sans: ['"Inter Variable"', 'Inter', 'system-ui', 'sans-serif'],
+        mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
+      },
+      letterSpacing: {
+        eyebrow: '0.2em',
+      },
+      maxWidth: {
+        '8xl': '88rem',
       },
     },
   },

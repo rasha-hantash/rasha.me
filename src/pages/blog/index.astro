@@ -9,34 +9,40 @@ const posts = (await getCollection('blog'))
   .filter((post) => !post.data.draft)
   .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
 ---
-<BaseLayout title="Blog | Rasha Hantash" description="Posts on engineering, infrastructure, and startups.">
+<BaseLayout title="Writing | Rasha Hantash" description="Posts on engineering, infrastructure, and startups.">
   <Nav />
 
-  <main class="max-w-4xl mx-auto px-4 py-12 flex-1">
-    <div class="border border-black p-4 mb-6">
-      <p class="section-label">TRANSMISSIONS // LOG</p>
-      <h1 class="section-title text-2xl">Blog</h1>
-      <p class="text-sm opacity-60">Notes on engineering, infrastructure, and building things.</p>
-    </div>
+  <main class="flex-1 max-w-4xl mx-auto px-6 md:px-10 pt-20 md:pt-28 pb-24">
+    <header class="mb-16 md:mb-20">
+      <span class="eyebrow">Field Notes</span>
+      <h1 class="display mt-8" style="font-size: clamp(2.25rem, 5vw, 3.75rem);">Writing</h1>
+      <p class="mt-6 text-lg font-light text-ink/70 max-w-xl leading-relaxed">
+        Working notes on Go infrastructure, RAG pipelines, Claude Code agents,
+        evaluation, and the systems thinking behind software that has to keep working.
+      </p>
+    </header>
+
+    <div class="hairline mb-2" aria-hidden="true"></div>
 
     {posts.length === 0 ? (
-      <p class="text-center py-12 opacity-50 uppercase text-sm tracking-wider">NO TRANSMISSIONS FOUND</p>
+      <p class="py-16 text-sm text-ink/50 font-light">No posts yet — check back soon.</p>
     ) : (
-      <div class="grid grid-cols-1 gap-0">
-        {posts.map((post) => (
+      <ol class="flex flex-col">
+        {posts.map((post, i) => (
           <BlogCard
             title={post.data.title}
             description={post.data.description}
             pubDate={post.data.pubDate}
             slug={post.id}
             tags={post.data.tags}
+            index={i + 1}
           />
         ))}
-      </div>
+      </ol>
     )}
 
-    <div class="mt-8 text-center">
-      <a href="/" class="btn-brutal">&larr; BACK TO HOME</a>
+    <div class="mt-20">
+      <a href="/" class="text-[12px] uppercase tracking-eyebrow link-underline">&larr; Back home</a>
     </div>
   </main>
 
