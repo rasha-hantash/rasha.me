@@ -69,10 +69,11 @@ I worked through the setup manually first to understand each step, then automate
 2. Create a Tailscale account, generate a reusable auth key (browser)
 3. `hcloud server create` with your SSH key
 4. SSH in as root via the public IP
-5. Install Tailscale, join the tailnet, lock SSH to the `tailscale0` interface, disable root login, create a non-root user, install Claude Code, and configure dotfiles
-6. Run `claude` and complete OAuth via your laptop's browser
-7. Verify the laptop can reach the box via the Tailscale hostname
-8. Set up the phone (install Termius, add the host)
+5. Install Tailscale, join the tailnet, lock SSH to the `tailscale0` interface, disable root login, create a non-root user, install Claude Code and `gh`, and configure dotfiles
+6. Generate an SSH keypair for the non-root user on the VPS, add its public key to your laptop's `~/.ssh/authorized_keys`, and enable macOS Remote Login (System Settings → General → Sharing) — required so the VPS can rsync your gitignored `.claude/` files back from the laptop
+7. Run `claude` and complete OAuth via your laptop's browser, then `gh auth login` for repo cloning
+8. Verify the laptop can reach the box via the Tailscale hostname *and* the VPS can reach the laptop the other way
+9. Set up the phone (install Termius, add the host)
 
 Each step is straightforward in isolation. They accumulate. End-to-end, my first run took about **90 minutes** of clock time, with significant context-switching between the Hetzner console, Tailscale admin panel, and terminal.
 
@@ -83,6 +84,13 @@ The second time I did it — helping a friend reproduce the same setup on a diff
 The automation lives in a small repo: <a href="https://github.com/rasha-hantash/claude-vps-setup" target="_blank">claude-vps-setup</a>. The flow:
 
 ```sh
+# Both secrets need to be in your shell environment before running /setup.
+# AskUserQuestion renders pasted text in plaintext in its option list,
+# which would leak the token into terminal scrollback and the session
+# transcript — so the wizard refuses to prompt for them.
+export HCLOUD_TOKEN=<paste-from-console.hetzner.cloud>
+export TS_AUTH_KEY=<paste-from-login.tailscale.com>
+
 git clone https://github.com/rasha-hantash/claude-vps-setup
 cd claude-vps-setup
 claude
@@ -94,18 +102,20 @@ Inside Claude Code:
 /setup
 ```
 
-It asks one question at a time — Hetzner token, Tailscale auth key, region, VM name — printing the relevant browser steps inline so the source for each value is clear. Each answer informs the next step. When it finishes, you have a working VPS and a `.setup-state.json` recording what was provisioned.
+It asks one question at a time — VM type, region, name — pulling live availability from the Hetzner API so the type/region picker only shows valid combinations (Hetzner rolls out new types EU-first, so `cx23` is currently NBG-1 / HEL-1 only). Each answer informs the next step. When it finishes, you have a working VPS and a `.setup-state.json` recording what was provisioned.
 
 The time it saves:
 
 | Phase | Manual | `/setup` | Saved |
 |---|---|---|---|
 | Provision Hetzner VM (console clicks: image, region, key) | 8–12 min | ~90 sec | ~10 min |
-| Bootstrap (user, SSH harden, UFW, Tailscale, Node, Claude Code) | 25–40 min | 3–5 min | ~30 min |
+| Bootstrap (user, SSH harden, UFW, Tailscale, Claude Code, gh) | 25–40 min | 3–5 min | ~30 min |
+| Agent SSH key + laptop authorized_keys + Remote Login | 5–10 min | 0 (auto + one toggle) | ~7 min |
 | Tmux + global `CLAUDE.md` + mobile ergonomics | 10–15 min | 0 (templated) | ~12 min |
+| Optional: personal `~/.claude/` rsync (hooks, agents, skills) | 10–15 min | 0 (one prompt) | ~12 min |
 | Optional: Paper Desktop bridge (autossh + persistent unit) | 30–60 min | 2 min | ~45 min |
 | Optional: HTTPS dev preview (UFW, Caddy, DNS) | 15–20 min | 3–4 min | ~15 min |
-| **First run total** | **~90 min – 2.5 hr** | **~10–15 min clock, ~3 min attention** | **~80–130 min** |
+| **First run total** | **~100 min – 3 hr** | **~10–15 min clock, ~3 min attention** | **~90–160 min** |
 
 The first run isn't where automation pays off. The value comes on the second run — a new laptop, a second VPS, helping someone else reproduce the setup, returning to it six months from now. In those cases, the time drops from roughly 90 minutes to 10.
 
@@ -120,46 +130,34 @@ You:    /setup
 
 Claude: Checking prereqs...
         ✓ ssh-keygen, ~/.ssh/id_ed25519.pub
-        ✗ hcloud not found
-        ✗ tailscale not found
+        ✓ hcloud, tailscale
+        ✓ HCLOUD_TOKEN, TS_AUTH_KEY in env
+        ✗ macOS Remote Login (sshd) is OFF
 
-        Both are available via Homebrew. Install them now? [Y/n]
+        Open System Settings → General → Sharing → Remote Login and
+        toggle it ON, then reply "done". Required so the VPS can rsync
+        your gitignored .claude/ files back from this laptop.
 
-You:    Y
-
-Claude: ▸ brew install hcloud tailscale
-        ✓ Installed.
-
-Claude: Paste your Hetzner API token. Open
-        https://console.hetzner.cloud/ → Security → API tokens →
-        Generate (Read & Write). The token only displays once.
-        [token input]
-
-You:    Bx9mPq...
-
-Claude: Region?
-        ● ash  — Ashburn 🇺🇸  ← suggested (your timezone is LA, this is closest)
-        ○ nbg1 — Nuremberg 🇩🇪
-        ○ hel1 — Helsinki 🇫🇮
-        ○ sin  — Singapore 🇸🇬
-
-You:    ash
+You:    done
 
 Claude: VM type?
-        ● cx23  — 2 vCPU / 4 GB — €4.49/mo  ← recommended
-        ○ cx33  — 4 vCPU / 8 GB           (if your repos are large)
+        ● cx23  — 2 vCPU / 4 GB — available in nbg1, hel1 — from €4.49/mo
+        ○ cx33  — 4 vCPU / 8 GB — available in nbg1, hel1 — from €8.49/mo
+        ○ cpx22 — 2 vCPU / 4 GB — available everywhere — from €4.85/mo
+          (Hetzner ships new types EU-first; pick spec first so the
+           region prompt only shows valid options.)
 
 You:    cx23
+
+Claude: Region?
+        ● nbg1 — Nuremberg 🇩🇪
+        ○ hel1 — Helsinki 🇫🇮
+
+You:    nbg1
 
 Claude: Name? [default: claude-box]
 
 You:    (enter)
-
-Claude: Tailscale auth key. Open
-        https://login.tailscale.com/admin/settings/keys → Generate.
-        Make it reusable, 90-day expiry.
-
-You:    tskey-auth-kAB...
 
 Claude: Two optional add-ons — pick yes if you'll want them later:
         Paper Desktop bridge?  [Y/n]
@@ -168,32 +166,42 @@ Claude: Two optional add-ons — pick yes if you'll want them later:
 You:    Y / N
 
 Claude: About to do this:
-          VM:        claude-box (cx23, ash)
+          VM:        claude-box (cx23, nbg1)
           Cost:      €4.49/mo, billed hourly starting now
           Hardening: disable root login, lock SSH to tailscale0
-          Install:   Tailscale, Claude Code (native), tmux, zsh, jq
+          Install:   Tailscale, Claude Code (native), gh, tmux, zsh, jq
         Continue?  [Y/n]
 
 You:    Y
 
-Claude: [1/6] Provisioning VM... ✓ 137.184.42.91 in 47s
-        [2/6] Waiting for SSH... ✓ up after 28s
-        [3/6] Copying bootstrap script... ✓
-        [4/6] Running bootstrap (~3 min)...
+Claude: [1/8] Provisioning VM... ✓ 137.184.42.91 in 47s
+        [2/8] Waiting for SSH... ✓ up after 28s
+        [3/8] Copying bootstrap script... ✓
+        [4/8] Running bootstrap (~3 min)...
               → Tailscale joined: claude-box.tail-abc123.ts.net
-              → Installed: Claude Code (native), zsh, tmux, jq
+              → Generated agent SSH keypair
+              → Installed: Claude Code (native), gh, zsh, tmux, jq
               → SSH hardened
-        [5/6] Verifying Tailscale connectivity from laptop... ✓
-        [6/6] Wrote .setup-state.json
+        [5/8] Authorizing VPS pubkey on this laptop... ✓ (appended to ~/.ssh/authorized_keys)
+        [6/8] Verifying Tailscale connectivity (laptop ↔ VPS, both directions)... ✓
+        [7/8] Sync your personal ~/.claude/ config to the VPS? [Y/n]
+
+You:    Y
+
+Claude: ▸ rsync -av --info=progress2 ~/.claude/{CLAUDE.md,hooks,agents,skills,commands,settings.json}
+        ✓ 142 files, 8.4 MB
+        [8/8] Wrote .setup-state.json
 
         Your VPS:  claude-box.tail-abc123.ts.net (user: agent)
         SSH:       ssh agent@claude-box.tail-abc123.ts.net
         Phone:     Termius → host = claude-box.tail-abc123.ts.net
 
-        One more step on the VPS — run `claude` to complete OAuth:
-          ssh agent@claude-box.tail-abc123.ts.net -t claude
+        Two manual one-time auth steps remain:
+          ssh agent@claude-box.tail-abc123.ts.net -t claude          # Claude Code OAuth
+          ssh agent@claude-box.tail-abc123.ts.net -t gh auth login   # GitHub auth
 
-        Suggested next: /add-paper (sets up the Paper Desktop bridge — see Caveats)
+        Suggested next: /add-paper (Paper Desktop bridge — see Caveats)
+                        /add-chrome (claude-in-chrome browser tools — see Caveats)
 ```
 
 Two aspects of this flow are difficult to replicate with a plain bash script using `read -p`. The first is **adaptive defaults** — suggesting `ash` as the region from the user's timezone, for example. The second is **recovery messaging** — when step 4 fails with `Error: invalid auth key`, the installer can explain *"Tailscale rejected the auth key — usually means it's expired or single-use and already consumed. Regenerate at https://... and re-run with `/setup --resume`"* instead of surfacing a stack trace.
@@ -236,14 +244,21 @@ A few constraints worth knowing.
 
 **HTTPS dev previews need extra setup.** By default the VPS is locked to Tailscale — the public internet can't reach it. That's the right default for solo work, but some workflows need a public HTTPS URL: OAuth callbacks (most providers require HTTPS redirect URIs), webhooks from Stripe / GitHub / Slack, mobile testing on real devices for service workers and other HTTPS-only browser APIs, and sharing a preview link with someone not on your tailnet. The installer offers an `/add-https` command that layers in Caddy, opens UFW for ports 80/443, and reverse-proxies a domain you own to a dev server port — Caddy handles the Let's Encrypt cert automatically. The command is wired but untested end-to-end, so file an issue if it breaks on first run.
 
+**macOS Remote Login is required for repo sync.** `vps-clone` and `vps-sync-repo` work by having the VPS SSH back into the laptop to rsync gitignored `.claude/` files. macOS ships with the SSH server (`sshd`) off by default — you have to flip it on at System Settings → General → Sharing → Remote Login. The wizard surfaces this as a prereq, but if you skip it, the helpers fail with "Connection closed by ... port 22" on first run. Re-enabling it and re-running fixes it; nothing on the VPS needs to change.
+
+**First-run rsync of `.claude/worktrees/` can be heavy.** The sync helper transfers every gitignored file under `.claude/`, which on most active repos is dominated by per-worktree directories with their own `node_modules` and build artifacts. On one of my repos that came out to **7.5 GB**. At typical home upload bandwidth (5 MB/s), that's 25 minutes for the first sync. Subsequent runs are incremental and fast. `du -sh .claude/` on the laptop tells you the payload before you commit. A future improvement will prune merged + clean worktrees before sync — for now, plan accordingly or `rm -rf .claude/worktrees/<old-branch>` ahead of time on repos where you don't need them.
+
+**Browser MCP tools (`claude-in-chrome`) need a separate bridge.** The VPS is headless Linux — no Chrome, no GUI. So the chrome MCP that drives a real browser doesn't run there natively. The installer ships a sketched `/add-chrome` command that mirrors `/add-paper`'s pattern: `autossh` reverse tunnel from the laptop's `claude-in-chrome` MCP port to the VPS, so VPS Claude can call browser tools as if they were local. It's not yet end-to-end tested (the transport — HTTP vs Chrome native messaging — needs to be confirmed before the tunnel pattern can be promised), but the architecture is correct. Until that ships cleanly: keep browser-heavy tasks on the laptop side, or use Playwright headlessly on the VPS for things that don't need extension-level interactivity.
+
 ## What's Next
 
 The installer is at an early version. Remaining work I have planned:
 
-- Inline the `claude` first-run OAuth as the final installer step (currently it's a manual action after setup completes)
-- Document the Paper bridge well enough that someone who has never written a launchd unit can ship it
+- Inline the `claude` first-run OAuth and `gh auth login` as the final installer steps (currently they're manual actions after setup completes — an SSH-and-paste pattern would close that loop)
 - Test `/add-https` against a real VPS end-to-end and fix whatever breaks
-- Test the install path on a non-macOS laptop
+- Confirm `claude-in-chrome`'s transport and finish `/add-chrome` end-to-end
+- Detect-and-prune merged + clean worktrees on the laptop side before `vps-sync-repo` to cut multi-GB first syncs
+- Test the install path on a non-macOS laptop (Linux laptop SSH server is on by default — different prereq UX)
 
 If you want to try the setup, the repo is <a href="https://github.com/rasha-hantash/claude-vps-setup" target="_blank">here</a>. Issues and corrections are welcome — I'd like this to become a reliable reference for running Claude Code on a VPS, and at the moment my testing only covers my own laptop.
 
