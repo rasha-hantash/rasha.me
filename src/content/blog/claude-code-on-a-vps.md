@@ -6,17 +6,24 @@ tags: ["claude-code", "vps", "tailscale", "hetzner", "remote-development"]
 draft: false
 ---
 
-## Why I Built This
+[`claude-vps-setup`](https://github.com/rasha-hantash/claude-vps-setup) is an interactive installer that turns the 90-minute manual setup of running Claude Code on a Hetzner VPS into roughly 10 minutes of clock time and 3 minutes of attention. Run `/setup` inside Claude Code, answer a few questions, and you get a working box reachable from your phone over Tailscale — same Claude Code, same hooks, same configuration as your laptop, just always-on.
 
-I wanted Claude Code to keep working after my laptop closed. A few specific situations led me here:
+Three components do the actual work: **Hetzner** for compute (~€4.49/mo `cx23`), **Tailscale** for a private network (no public SSH on the box; one paste of an auth key adds your phone), and **Claude Code's native installer** running on Linux with OAuth handled by the standard first-run flow. The wizard automates the pieces that don't need judgment — provisioning, hardening, key exchange, dotfile sync — and prompts only for the choices that matter.
 
-- I'm at a café with my laptop at home, and I want to continue iterating on something I started that morning.
-- I'm running a long task — a refactor that touches a hundred files, an ingestion pipeline working through a corpus — and I'd rather it not be tied to whether my laptop is awake.
-- I'm on my phone in a meeting and remember a small change I forgot to push. SSH in from Termius, fix it, push it.
+| Phase | Manual | `/setup` | Saved |
+|---|---|---|---|
+| Provision Hetzner VM (console clicks: image, region, key) | 8–12 min | ~90 sec | ~10 min |
+| Bootstrap (user, SSH harden, UFW, Tailscale, Claude Code, gh) | 25–40 min | 3–5 min | ~30 min |
+| Agent SSH key + laptop `authorized_keys` + Remote Login | 5–10 min | 0 (auto + one toggle) | ~7 min |
+| Tmux + global `CLAUDE.md` + mobile ergonomics | 10–15 min | 0 (templated) | ~12 min |
+| Optional: personal `~/.claude/` rsync (hooks, agents, skills) | 10–15 min | 0 (one prompt) | ~12 min |
+| Optional: Paper Desktop bridge (autossh + persistent unit) | 30–60 min | 2 min | ~45 min |
+| Optional: HTTPS dev preview (UFW, Caddy, DNS) | 15–20 min | 3–4 min | ~15 min |
+| **First run total** | **~100 min – 3 hr** | **~10–15 min clock, ~3 min attention** | **~90–160 min** |
 
-A VPS handles all three. Among the cheap always-on options, Hetzner's smallest instance is the most reasonable I've found at **€4.49 per month**.
+The first run isn't where the automation pays off. The value comes on the second one — a new laptop, a second VPS, helping a friend reproduce the setup, returning to this six months from now. In those cases the time drops from roughly 90 minutes to 10.
 
-I had one real constraint: the VPS should feel like working on my laptop. Same ergonomics — connect by name, not by IP, type the same commands, run the same Claude Code with the same hooks and settings. And without me having to actively maintain it — no firewall rules to babysit, no credential files to keep secret across machines, nothing to remember to patch.
+The rest of this post is what the result looks like in daily use, why I bothered, and the technical details for the curious.
 
 ## A Day-to-Day Session
 
@@ -28,9 +35,28 @@ tmux new -A -s work
 claude
 ```
 
-The first line connects to the Hetzner box over Tailscale (no public exposure, no IP to remember). The second attaches to a persistent tmux session, creating one if it doesn't exist. The third starts Claude Code. Same `gt`, same shell, same configuration I have on the laptop.
+The first line connects to the Hetzner box over Tailscale (no public exposure, no IP to remember). The second attaches to a persistent tmux session, creating one if it doesn't exist (`-A` is "attach if exists, else create"). The third starts Claude Code.
 
-From my phone, the workflow is identical, just routed through Termius. A shell alias (`alias vps='ssh agent@claude-box.tail-scale-name.ts.net'`) shortens the connect step to a single character if you'd like.
+The tmux line is the one that's easy to skip and shouldn't be. Two reasons it matters:
+
+- **Persistence.** When the SSH connection drops — laptop lid shut, phone tethering blips, train through a tunnel — the tmux session keeps running on the VPS. Reattach two hours later from anywhere and the Claude task is still going.
+- **Parallelism.** Different session names give you different work streams. `tmux new -A -s atherton` for one repo, `-s personal` for another, each with its own Claude Code instance. Detach one to check on later from your phone, attach to another to start something new.
+
+Without tmux, every SSH disconnect kills your Claude session.
+
+In practice I don't actually type these three commands by hand — I use [cove](https://github.com/rasha-hantash/cove), a small Rust CLI I built to manage Claude Code sessions, and its `cove vps` subcommand wraps the SSH + tmux + `claude` trio. Same workflow, fewer keystrokes, same result.
+
+From my phone, the workflow is identical, just routed through Termius.
+
+## Why
+
+Three situations made this worth the work:
+
+- Working from a café with my laptop at home, wanting to keep iterating on what I started that morning.
+- A long task running — a hundred-file refactor, an ingestion pipeline working through a corpus — that I'd rather not tie to whether my laptop is awake.
+- On my phone in a meeting, remembering a small change I forgot to push. SSH in from Termius, push it.
+
+One constraint: the VPS should feel like working on my laptop. Same ergonomics — connect by name, type the same commands, run the same Claude Code with the same hooks and settings. And without active maintenance — no firewall rules to babysit, no credential files to keep secret across machines, nothing to remember to patch.
 
 ## The Stack
 
@@ -102,22 +128,7 @@ Inside Claude Code:
 /setup
 ```
 
-It asks one question at a time — VM type, region, name — pulling live availability from the Hetzner API so the type/region picker only shows valid combinations (Hetzner rolls out new types EU-first, so `cx23` is currently NBG-1 / HEL-1 only). Each answer informs the next step. When it finishes, you have a working VPS and a `.setup-state.json` recording what was provisioned.
-
-The time it saves:
-
-| Phase | Manual | `/setup` | Saved |
-|---|---|---|---|
-| Provision Hetzner VM (console clicks: image, region, key) | 8–12 min | ~90 sec | ~10 min |
-| Bootstrap (user, SSH harden, UFW, Tailscale, Claude Code, gh) | 25–40 min | 3–5 min | ~30 min |
-| Agent SSH key + laptop authorized_keys + Remote Login | 5–10 min | 0 (auto + one toggle) | ~7 min |
-| Tmux + global `CLAUDE.md` + mobile ergonomics | 10–15 min | 0 (templated) | ~12 min |
-| Optional: personal `~/.claude/` rsync (hooks, agents, skills) | 10–15 min | 0 (one prompt) | ~12 min |
-| Optional: Paper Desktop bridge (autossh + persistent unit) | 30–60 min | 2 min | ~45 min |
-| Optional: HTTPS dev preview (UFW, Caddy, DNS) | 15–20 min | 3–4 min | ~15 min |
-| **First run total** | **~100 min – 3 hr** | **~10–15 min clock, ~3 min attention** | **~90–160 min** |
-
-The first run isn't where automation pays off. The value comes on the second run — a new laptop, a second VPS, helping someone else reproduce the setup, returning to it six months from now. In those cases, the time drops from roughly 90 minutes to 10.
+It asks one question at a time — VM type, region, name — pulling live availability from the Hetzner API so the type/region picker only shows valid combinations (Hetzner rolls out new types EU-first, so `cx23` is currently NBG-1 / HEL-1 only). Each answer informs the next step. When it finishes, you have a working VPS and a `.setup-state.json` recording what was provisioned. (See the table at the top of this post for the time-saved breakdown.)
 
 A few minutes are unavoidable: generating the Hetzner API token (browser), generating the Tailscale auth key (browser), installing Tailscale on the laptop (GUI). Plan on three to four minutes of human input even with the installer.
 
