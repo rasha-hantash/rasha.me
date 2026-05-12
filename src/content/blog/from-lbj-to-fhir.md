@@ -1,16 +1,14 @@
 ---
 title: "From LBJ to FHIR: What J-codes taught me about US healthcare coding"
 pubDate: 2026-05-11
-description: "A builder's tour of why infusion claims get denied, what the two-tier HCPCS system actually is, and why the 2026 FHIR mandate carved out the exact use case I was building for."
+description: "A builder's tour of why drug claims get denied, what the two-tier HCPCS system actually is, and why the 2026 FHIR mandate quietly carved out drug prior authorization."
 tags: ["healthcare", "fhir", "x12", "hcpcs", "interoperability"]
 draft: false
 ---
 
-I spent a stretch of my last build cycle on a unified referral inbox for infusion clinics. The pitch was simple: intake forms come in from a dozen referring offices in a dozen formats — fax, PDF, EHR portal export, the occasional Word doc — and the clinic's intake coordinator burns hours retyping the same thirty fields into their billing and EHR systems. So I built the thing that did the obvious work: extract the patient, the diagnosis, the ordered drug, the dose; run an eligibility check against the payer; match the drug to the right J-code; package it for downstream submission to FHIR.
+If you're building anything in healthtech intake, eligibility, or prior authorization, the codes are the product surface — not an implementation detail you can hide behind a lookup table. The mapping between "what the referring physician wrote" and "what the payer will adjudicate" is where most of the hard problems concentrate, and J-codes specifically — the drug codes in HCPCS Level II — are where that hardness peaks.
 
-Somewhere around the J-code matching step, I started reading more carefully. And the more I read, the more I realized that the surface I was building against — five-character alphanumeric codes — was the surface of something with sixty years of policy underneath it. The denial rates everyone in revenue cycle complains about aren't a bug. They're the predictable output of a system that was bolted together piece by piece since 1965, with each piece solving a problem the previous piece created.
-
-This is a tour of that system from a builder's perspective. If you're working on anything in the healthtech intake, eligibility, or prior auth space, the architectural debt here is the actual product surface — and the federal interoperability wave you keep hearing about is, for drug-related use cases specifically, mostly a 2027+ problem.
+This is a tour of the system underneath those codes, from a builder's perspective. The denial rates everyone in revenue cycle complains about are the predictable output of a system bolted together piece by piece since 1965, with each piece solving a problem the previous piece created. The federal interoperability wave you keep hearing about is real, but for drug-related use cases specifically, it's mostly a 2027+ problem.
 
 ## Contents
 
@@ -21,7 +19,7 @@ This is a tour of that system from a builder's perspective. If you're working on
 5. [Step zero: medical benefit or pharmacy benefit?](#step-zero-medical-benefit-or-pharmacy-benefit)
 6. [How healthcare data actually moves: the X12 era](#how-healthcare-data-actually-moves-the-x12-era)
 7. [The FHIR shift, and the drug-shaped hole in it](#the-fhir-shift-and-the-drug-shaped-hole-in-it)
-8. [What I actually built](#what-i-actually-built)
+8. [A useful detour: the public STC lookup](#a-useful-detour-the-public-stc-lookup)
 9. [Where this is heading](#where-this-is-heading)
 10. [What this means if you're building in this space](#what-this-means-if-youre-building-in-this-space)
 
@@ -39,7 +37,7 @@ The American Medical Association, anticipating this, had introduced Current Proc
 
 The Health Care Financing Administration (HCFA — renamed CMS in 2001) responded in two stages. In 1978 it established the HCFA Common Procedure Coding System (HCPCS) as the framework[^8] — a single hierarchical code set covering every billable item or service a Medicare claim might describe, from physician visits to drugs to wheelchairs to ambulance rides. The two-tier structure is what gives HCPCS its breadth; the deep dive on tiers is below. Through the early 1980s it built out HCPCS Level II — a national alphanumeric code set that absorbed the 100+ non-physician schemes into one system, with J-codes for drugs, A-codes for ambulance and supplies, E-codes for DME, L-codes for prosthetics, and so on. In 1983, HCFA formally adopted the AMA's CPT as Level I of HCPCS and mandated the combined system for all Medicare Part B billing.[^9] State Medicaid agencies were brought in starting in 1986. HIPAA made HCPCS use mandatory across all covered entities in 1996.[^10]
 
-When you bill a J-code today, you are using the direct descendant of what consolidated those 100+ pre-1980 drug-coding schemes. The compromise that produced HCPCS — and the source of most of the complexity I hit while building — was that the new system absorbed CPT rather than replacing it.
+When you bill a J-code today, you are using the direct descendant of what consolidated those 100+ pre-1980 drug-coding schemes. The compromise that produced HCPCS — and the source of most of the structural complexity that follows — was that the new system absorbed CPT rather than replacing it.
 
 ## The two tiers
 
@@ -116,9 +114,9 @@ The combined effect: J-codes are simultaneously the most data-rich part of an in
 
 ## Step zero: medical benefit or pharmacy benefit?
 
-Before any J-code matching, NDC lookup, or prior auth submission happens, an infusion clinic's intake team has to answer a more basic question: is this drug covered under the patient's medical benefit or pharmacy benefit?
+Before any J-code matching, NDC lookup, or prior auth submission happens, intake at any practice that administers drugs in-office has to answer a more basic question: is this drug covered under the patient's medical benefit or pharmacy benefit?
 
-For infusion drugs, this is not a rhetorical question. The same drug, for the same patient, can be covered under either side depending on the plan, and the answer determines almost everything downstream:
+For physician-administered drugs, this is not a rhetorical question. The same drug, for the same patient, can be covered under either side depending on the plan, and the answer determines almost everything downstream:
 
 - **Medical benefit ("buy and bill"):** the clinic acquires the drug, administers it, and bills the payer using a J-code on a medical claim (X12 837 professional or institutional). Prior authorization, where required, goes through the medical PA process — X12 278 transactions where supported, payer portals and fax everywhere else. The clinic carries inventory risk and earns margin on drug acquisition.
 - **Pharmacy benefit ("white bagging" / specialty pharmacy):** the drug is dispensed by a specialty pharmacy under the patient's pharmacy benefit and billed through the PBM via NCPDP transactions, using NDC rather than J-code. PA goes through the PBM's prior auth process, which is usually a separate system from the medical PA. The drug ships to the clinic for administration; the clinic bills only for administration.
@@ -139,8 +137,6 @@ Some payers route specific drugs to one side or the other. Some leave it to the 
 Getting this wrong is expensive. Bill a pharmacy-benefit drug on a medical claim and you get a CO-109 denial ("claim/service not covered by this payer/contractor"). Send a medical-benefit drug to the PBM and the PBM rejects it. Either way, you've burned days on the wrong workflow.
 
 This is where eligibility data earns its keep. The X12 271 response carries Service Type Codes (STCs) that indicate which categories of benefits the patient has active coverage under. STC 30 (Health Benefit Plan Coverage) tells you general medical coverage is in place. STC 88 (Pharmacy) tells you pharmacy benefits are active. The presence or absence of pharmacy benefits in the 271 — and any carveout indicators that point to a separate PBM — is what tells you which side of the line a given drug should land on.
-
-The intake automation problem, stated cleanly, is: take a free-text drug name from a referral form, resolve it to a candidate J-code, look up the patient's benefits, and decide whether this is a medical claim path (J-code) or a pharmacy claim path (NDC through the PBM). The branching decision is the hard part. Everything downstream — coverage check, prior auth, claim formatting — depends on getting that branch right.
 
 ## How healthcare data actually moves: the X12 era
 
@@ -186,17 +182,13 @@ Here's the part that surprised me: **the prior authorization API mandate explici
 
 The Patient Access API expansion includes prior authorization information "excluding those for drugs." The Prior Authorization API requirement is for "items and services" — a phrase that, in CMS rule-writing, specifically does not include drug benefit prior authorizations.[^20] Drug PA is being addressed in a separate, later rule: CMS-0062-P, the 2026 Interoperability Standards and Prior Authorization for Drugs proposed rule, which is still in proposed status as of this writing.[^21]
 
-So the federal interoperability wave that's hitting the rest of healthcare in 2026 and 2027 — the wave that produced the FHIR APIs I was prepping data for — does not, in its current form, cover the exact use case I was automating. Infusion drugs are drugs. Drug PA is excluded. My referral inbox was packaging data for FHIR submission to a Prior Authorization API that, for the drugs the clinic actually administers, isn't required to exist yet.
+So the federal interoperability wave that's hitting the rest of healthcare in 2026 and 2027 does not, in its current form, cover drug prior authorization. Drug PA is excluded from the API mandate. For anyone building toward a "we submit prior auth via FHIR" workflow for a physician-administered drug, the Prior Authorization API simply isn't required to exist yet.
 
-## What I actually built
+## A useful detour: the public STC lookup
 
-Now you have all the background. Here's what the unified referral inbox actually did, and where each piece sat in the system I just described.
+One artifact worth surfacing for anyone working in this corner. The mapping from a J-code to the right service categories for the eligibility lookup — which STCs to ask in the 270 and interpret in the 271 — is exposed as a public tool: Stedi's [**Service Type Code Lookup** (`stedi.com/cpt-hcpcs-to-stc`)](https://www.stedi.com/cpt-hcpcs-to-stc) takes a CPT, HCPCS, or CDT code and returns the STCs payers commonly accept for it. It's the cleanest public answer I've found to a question that otherwise becomes a recurring judgment call: "for this J-code, which service types should I check in the 271?"
 
-**The pipeline.** A referral lands as a fax or scanned PDF from a referring physician's office, carrying patient demographics, the ordered drug, dose, frequency, and a diagnosis. The inbox extracts the structured fields, runs an eligibility check, resolves the drug name to a candidate J-code, decides whether the drug should be billed under medical or pharmacy benefit, and packages the result for downstream submission. That packaging step is where I targeted FHIR — and where, as the previous section makes clear, I'd misread the regulatory landscape.
-
-**Where Stedi fit.** Stedi handled three transaction types I cared about: insurance discovery, eligibility, and (in the would-be future) claim submission. Their eligibility API wraps X12 270/271 in JSON and returns service type codes and benefit information in a structured response, which made the medical-vs-pharmacy determination tractable in code instead of requiring an EDI parser. Their insurance discovery API — finding coverage from patient demographics alone — handled a recurring intake failure mode where the referring office hadn't captured insurance correctly or the patient brought an outdated card.
-
-The mapping from a J-code to the appropriate service category for the eligibility lookup — so you can ask the right STC question in the 270 and interpret the right STCs in the 271 — is also surfaced as a public lookup tool: their [**Service Type Code Lookup** (`stedi.com/cpt-hcpcs-to-stc`)](https://www.stedi.com/cpt-hcpcs-to-stc) takes a CPT, HCPCS, or CDT code and returns the STCs payers commonly accept for it. The lookup runs entirely client-side — no `/api/...` request fires when you search — and ships its data in two pieces:
+The lookup runs entirely client-side — no `/api/...` request fires when you search — and ships its data in two pieces:
 
 - **The curated STC mappings** live inlined in one of the page's Next.js client chunks at `/_next/static/chunks/`. At the time of writing, that chunk is `0crntnx00w6lg.js` (~47 KB), containing about 306 codes (203 CPT, 80 HCPCS Level II, 23 CDT) structured as an array of `{ code, serviceTypeCodes, description }` objects. The chunk filename is content-hashed and will rotate on every Stedi deploy.
 - **The full HCPCS Level II descriptor dictionary** ships as a separate static JSON file at the stable path `/cpt-hcpcs-stc/hcpcsLevelIIDescriptions.json` (~1 MB). It's lazy-loaded the first time you submit a search. The file holds 8,685 codes — including all 1,220 active J-codes, every L-code, every Q-code, etc. — keyed as `{ "J2315": "Injection, naltrexone, depot form, 1 mg", ... }`. As of writing, this URL is not content-hashed, which makes it the most directly useful artifact for a builder.
@@ -210,23 +202,11 @@ So the lookup is a hybrid. ~306 codes have curated, payer-tested STC arrays in t
                               serviceTypeCodes: ["88","1"] } }
 ```
 
-So `J9312` (rituximab — antineoplastic) lands on the oncology branch and you'd query the 270 with STCs `ON / 78 / 87 / 88 / 1`. `J2315` (Vivitrol — not oncology) lands on the generic-injectable branch and gets STCs `88 / 1`. The same pattern applies across the other Level II letter categories. To re-locate the JS chunk on a future deploy: load the page with DevTools' Network tab open, `fetch()` each `_next/static/chunks/*.js` file and grep for a known mapped code (e.g., `"99214"`) or for `"typeOfCare"` — the file with the hits is the curated table. That's how I got both pieces into my pipeline.
+So `J9312` (rituximab — antineoplastic) lands on the oncology branch and a 270 would carry STCs `ON / 78 / 87 / 88 / 1`. `J2315` (Vivitrol — not oncology) lands on the generic-injectable branch and gets STCs `88 / 1`. The same pattern applies across the other Level II letter categories. To re-locate the JS chunk on a future deploy: load the page with DevTools' Network tab open, `fetch()` each `_next/static/chunks/*.js` file and grep for a known mapped code (e.g., `"99214"`) or for `"typeOfCare"` — the file with the hits is the curated table.
 
-**Where Stedi explicitly didn't fit.** Prior authorization submission. Stedi's product surface covers eligibility, insurance discovery, and claims — the upstream and downstream of the workflow — but not the PA in the middle. Drug PA in particular still routes through X12 278 transactions where the payer supports them, payer portals where they don't, and a long tail of fax and phone for the rest. Knowing where Stedi's surface ended saved me from designing the wrong abstraction at the PA step.
+What you do with it: pull the prefix-cascade table once and treat it as your default STC suggestion when an unmapped code shows up. For the ~306 curated codes you get payer-tested arrays; for the rest you get a sane fallback that's better than guessing. Either way, the STC choice in your 270 stops being a thing your intake pipeline has to relitigate per code.
 
-**The claim I didn't build.** After PA approval — by whatever route — the payer issues an authorization number. That number is the connective tissue between the PA decision and the eventual claim. It rides on a specific loop of the X12 837 (REF segment, G1 qualifier), and a missing or wrong auth number is the most common reason an otherwise-correct claim earns a CO-197 denial ("precertification/authorization/notification absent"). For an infusion encounter, the claim itself is a packaging job:
-
-- Patient and provider demographics
-- Diagnosis codes (ICD-10) for medical necessity
-- The CPT administration code (96365 for the first hour of IV infusion, 96366 for each additional hour)
-- The J-code for the drug, with units matched to the dose delivered
-- The NDC of the specific package
-- The authorization number from PA, in the right segment of the 837
-- Service date, place of service, charges
-
-This is where Stedi's claims API would have come in if I'd kept building. Their professional claims endpoint (837P) accepts a JSON payload describing the encounter and handles the X12 generation and routing through their network. Real-time claim status checks (276/277) would close the loop on whether the claim made it to the payer and was accepted. I didn't get that far. The unified referral inbox stopped at "this referral is structured, eligibility is verified, here is the candidate J-code with units, here is the medical-vs-pharmacy decision."
-
-**What I'd misread about FHIR.** The intake and eligibility layers of what I built were aimed at the right target. Insurance discovery and 270/271 eligibility through Stedi, J-code resolution from the referral's drug name, medical-vs-pharmacy benefit determination off the service type codes in the 271 — all of that is the existing-world stack and will keep being so for drug-intake workflows for the foreseeable future. The piece that didn't have a destination was the last mile: the assumption that I could hand a finished prior auth packet to a FHIR API and have it adjudicated. For the medical-side prior auths the clinic also processes (imaging, infusion administration codes, DME), the FHIR Prior Authorization API will start mattering in 2027. For the drug PA itself, the realistic destinations remain X12 278 where supported, payer portals where not, and a still-uncomfortable amount of fax and phone for the long tail.
+The same pattern — public artifact filling a gap your code would otherwise re-invent — is worth looking for everywhere in this stack. CMS publishes the quarterly ASP NDC-to-HCPCS crosswalk. The FDA Purple Book is the canonical originator-vs-biosimilar source. Modern eligibility API vendors (Stedi, Availity, Change Healthcare, Waystar) wrap X12 270/271 in JSON so your intake layer doesn't have to know what a NM1 segment is. The architectural posture worth taking: keep your own state thin, lean on these public artifacts where they exist, and reserve your engineering for the parts that genuinely don't have a clean answer yet — the J-code unit math, the NDC drift, the medical-vs-pharmacy branching, and the unclassified-code fallback.
 
 ## Where this is heading
 
@@ -248,15 +228,15 @@ The shape of the next five years, in one sentence: existing-world rails get form
 
 ## What this means if you're building in this space
 
-A few takeaways from the build, in case any of this is useful:
+A few takeaways from reading and prototyping in this space, in case any of this is useful:
 
-**The codes are the product surface, not an implementation detail.** I underestimated this. The mapping between "what the referring physician wrote" and "what the payer will adjudicate" is the actual hard problem, and the J-code unit logic is where most of that hardness concentrates. A matching layer that handles unit math, NDC drift, and unclassified-code fallbacks correctly is more valuable than a clean React frontend.
+**The codes are the product surface, not an implementation detail.** This is easy to underestimate. The mapping between "what the referring physician wrote" and "what the payer will adjudicate" is the actual hard problem, and the J-code unit logic is where most of that hardness concentrates. A matching layer that handles unit math, NDC drift, and unclassified-code fallbacks correctly is more valuable than a clean React frontend.
 
-**Don't skip the regulatory text.** I had read enough about CMS-0057-F to know FHIR was coming. I had not read closely enough to notice that drugs were carved out. The rule itself isn't long by federal standards, and the practical scope information is in the executive summaries CMS publishes alongside it. An hour with the actual rule would have changed the architecture I designed.
+**Don't skip the regulatory text.** I had read enough about CMS-0057-F to know FHIR was coming. I had not read closely enough to notice that drugs were carved out. The rule itself isn't long by federal standards, and the practical scope information is in the executive summaries CMS publishes alongside it. An hour with the actual rule changes the architecture you'd design against it.
 
 **Eligibility is the most reusable thing you build.** The 270/271 layer — and especially the service type codes returned in the 271 — is stable, well-understood, and useful in every downstream workflow. It tells you which benefit applies, which routes the rest of your branching: medical claim path or pharmacy claim path, medical PA process or PBM PA process. If you're prototyping in this space, the eligibility check is the piece of infrastructure that ages best.
 
-**Be honest about the timeline.** The "FHIR everything by 2027" framing is real for medical PA, Patient Access, Payer-to-Payer, and Provider Access. For drug PA specifically, the federal mandate is a separate, later, still-proposed rule. Investors and customers in the infusion space deserve to hear that distinction clearly, not folded into a generic "interoperability is here" pitch.
+**Be honest about the timeline.** The "FHIR everything by 2027" framing is real for medical PA, Patient Access, Payer-to-Payer, and Provider Access. For drug PA specifically, the federal mandate is a separate, later, still-proposed rule. Investors and customers in any drug-administering corner of healthcare deserve to hear that distinction clearly, not folded into a generic "interoperability is here" pitch.
 
 The codes, viewed from above, look like a mess. Viewed from the inside, they look like sixty years of policy compromises stacked on top of each other, each one solving a real problem and creating a new one. The denial rates, the unit math, the quarterly NDC churn, the unclassified-J-code purgatory — none of it is arbitrary. It's just deeply, structurally path-dependent.
 
@@ -264,7 +244,7 @@ The good news, if you can call it that, is that the structure isn't going anywhe
 
 ---
 
-_If you're building in this space and want to compare notes, I'd love to hear what you're seeing. Especially if you've found a clean way to handle the NDC-to-J-code mapping problem — that one is still mostly duct tape on my end._
+_If you're building in this space and want to compare notes, I'd love to hear what you're seeing. Especially if you've found a clean way to handle the NDC-to-J-code mapping problem — that one is still mostly duct tape from what I've seen._
 
 [^1]: National Archives, "Medicare and Medicaid Act (1965)." https://www.archives.gov/milestone-documents/medicare-and-medicaid-act ; LBJ Presidential Library, "Medicare and Medicaid." https://www.lbjlibrary.org/news-and-press/media-kits/medicare-and-medicaid ; Social Security Administration, "President Truman as First Medicare Beneficiary." https://www.ssa.gov/history/lbjsm.html
 
