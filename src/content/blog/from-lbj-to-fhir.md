@@ -6,10 +6,6 @@ tags: ["healthcare", "fhir", "x12", "hcpcs", "interoperability"]
 draft: false
 ---
 
-_A builder's tour of why infusion claims get denied, what the two-tier HCPCS system actually is, and why the 2026 FHIR mandate carved out the exact use case I was building for._
-
----
-
 I spent a stretch of my last build cycle on a unified referral inbox for infusion clinics. The pitch was simple: intake forms come in from a dozen referring offices in a dozen formats — fax, PDF, EHR portal export, the occasional Word doc — and the clinic's intake coordinator burns hours retyping the same thirty fields into their billing and EHR systems. So I built the thing that did the obvious work: extract the patient, the diagnosis, the ordered drug, the dose; run an eligibility check against the payer; match the drug to the right J-code; package it for downstream submission to FHIR.
 
 Somewhere around the J-code matching step, I started reading more carefully. And the more I read, the more I realized that the surface I was building against — five-character alphanumeric codes — was the surface of something with sixty years of policy underneath it. The denial rates everyone in revenue cycle complains about aren't a bug. They're the predictable output of a system that was bolted together piece by piece since 1965, with each piece solving a problem the previous piece created.
