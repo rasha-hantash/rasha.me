@@ -6,7 +6,7 @@ tags: ["healthcare", "fhir", "x12", "hcpcs", "interoperability"]
 draft: false
 ---
 
-If you're building anything in healthtech intake, eligibility, or prior authorization, the codes are the product surface — not an implementation detail you can hide behind a lookup table. The mapping between "what the referring physician wrote" and "what the payer will adjudicate" is where most of the hard problems concentrate, and J-codes specifically — the drug codes in HCPCS Level II — are where that hardness peaks.
+If you're building anything in intake, eligibility, or prior authorization, the codes are the product surface — not an implementation detail you can hide behind a lookup table. The mapping between "what the referring physician wrote" and "what the payer will adjudicate" is where most of the hard problems concentrate, and J-codes specifically — the drug codes in HCPCS Level II — are where that hardness peaks.
 
 This is a tour of the system underneath those codes, from a builder's perspective. The denial rates everyone in revenue cycle complains about are the predictable output of a system bolted together piece by piece since 1965, with each piece solving a problem the previous piece created. The federal interoperability wave you keep hearing about is real, but for drug-related use cases specifically, it's mostly a 2027+ problem.
 
