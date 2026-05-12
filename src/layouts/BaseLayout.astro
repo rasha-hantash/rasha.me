@@ -2,6 +2,7 @@
 import '@fontsource-variable/inter';
 import '@fontsource/jetbrains-mono/400.css';
 import '../styles/global.css';
+import Analytics from '@vercel/analytics/astro';
 
 interface Props {
   title?: string;
@@ -23,5 +24,6 @@ const { title = 'Rasha Hantash', description = 'Senior Software Engineer' } = As
   </head>
   <body class="min-h-screen flex flex-col bg-cream text-ink">
     <slot />
+    <Analytics />
   </body>
 </html>
