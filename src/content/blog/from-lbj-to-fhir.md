@@ -106,7 +106,17 @@ Of the Level II categories, J-codes are uniquely painful. CMS data shows more th
 
 Each row is a different math. Vivitrol multiplies up — each milligram is a unit, so a 380 mg dose is 380 units. Remicade and Rituxan divide down — each unit is 10 mg of drug, so a 400 mg dose is 40 units. Neulasta is the trap: a single 6 mg dose is exactly one unit, but it's easy to mistakenly bill 6 units because the dose number happens to match the milligram number in the unit definition. Get any of these wrong — bill 1 unit instead of 380, or 6 instead of 1 — and the claim either denies for unreasonable units or pays at a fraction of the correct rate.
 
-A useful clarification, since this trips people up: **the J-code itself does not change with dose**. There is one J-code per drug (sometimes per formulation — e.g., long-acting vs immediate-release, or IV vs subcutaneous can have different J-codes), and the dose is communicated via the _units_ field on the claim line, calculated against the J-code's per-unit definition. So Vivitrol 380 mg and a hypothetical Vivitrol 190 mg both bill as J2315 — just with units 380 vs 190. The exceptions are different formulations or strengths that CMS chose to assign separate J-codes to (typically newer biologics and biosimilars), but for any given product, the per-unit definition is fixed and dose maps to units, not to a new code.
+A useful clarification, since this trips people up: **the J-code itself does not change with dose**. One J-code per drug-and-formulation; dose is communicated via the _units_ field on the claim line. So Vivitrol 380 mg and a hypothetical Vivitrol 190 mg both bill as J2315 — just with units 380 vs 190.
+
+The exceptions are when CMS assigns different J-codes to different formulations or strengths of the same active ingredient — and to biosimilars distinct from the originator. **Leuprolide acetate** is the cleanest single-drug example:
+
+| Formulation                           | Strength | J-code |
+| ------------------------------------- | -------- | ------ |
+| Immediate-release SC (daily)          | per 1 mg | J9218  |
+| Depot IM suspension (1-month)         | 3.75 mg  | J1950  |
+| Depot IM suspension (1-month, higher) | 7.5 mg   | J9217  |
+
+Same active ingredient, three different J-codes — split first by formulation (immediate-release vs depot) and then by strength within the depot family. For any one row, dose still maps to units, not to a new code. The matching layer needs to pick the right row before the unit math even starts.
 
 **2. NDC-to-J-code mapping drifts quarterly.** Drugs are also identified by National Drug Code (NDC) — an 11-digit identifier assigned by FDA. Payers cross-reference the NDC on the claim against CMS's quarterly Average Sales Price (ASP) pricing files, which tell them what to pay per unit. The NDC-to-J-code crosswalk is not stable. New NDCs get added when manufacturers introduce new package sizes or formulations. Old NDCs get retired. The 10-digit-to-11-digit NDC conversion has its own pitfalls (you have to pad with a leading zero in one of three positions depending on the segment lengths, and getting it wrong silently breaks the lookup). If your software's NDC list is six months stale, you're going to start seeing CO-16 ("claim/service lacks information") and CO-181 ("procedure code was invalid on the date of service") denials.
 
