@@ -206,10 +206,6 @@ The good news, if you can call it that, is that the structure isn't going anywhe
 
 _If you're building in this space and want to compare notes, I'd love to hear what you're seeing. Especially if you've found a clean way to handle the NDC-to-J-code mapping problem — that one is still mostly duct tape on my end._
 
----
-
-## Sources
-
 [^1]: National Archives, "Medicare and Medicaid Act (1965)." https://www.archives.gov/milestone-documents/medicare-and-medicaid-act ; LBJ Presidential Library, "Medicare and Medicaid." https://www.lbjlibrary.org/news-and-press/media-kits/medicare-and-medicaid ; Social Security Administration, "President Truman as First Medicare Beneficiary." https://www.ssa.gov/history/lbjsm.html
 
 [^2]: Chris Edwards, "Medicare Reforms," Cato / Downsizing the Federal Government. The 1967 House Ways and Means estimate projected total Medicare spending of $12 billion in 1990; actual 1990 cost was $110 billion. https://www.downsizinggovernment.org/hhs/medicare-reforms
