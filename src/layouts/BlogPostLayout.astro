@@ -122,6 +122,17 @@ const formattedDate = new Date(pubDate).toISOString().split('T')[0];
     -webkit-overflow-scrolling: touch;
     max-width: 100%;
   }
+  /* On large screens, let tables break out of the prose column so wider
+     comparison tables don't waste vertical space on cell wrap. Body
+     paragraphs stay at their readable ~65ch width. */
+  @media (min-width: 1024px) {
+    .prose-mid :global(table) {
+      margin-left: -96px;
+      margin-right: -96px;
+      width: calc(100% + 192px);
+      max-width: calc(100% + 192px);
+    }
+  }
   .prose-mid :global(th),
   .prose-mid :global(td) {
     padding: 0.5rem 0.75rem;
