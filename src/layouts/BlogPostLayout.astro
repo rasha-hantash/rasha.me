@@ -22,7 +22,7 @@ const formattedDate = new Date(pubDate).toISOString().split('T')[0];
           {title}
         </h1>
         {description && (
-          <p class="mt-6 text-lg font-light text-ink/65 leading-relaxed max-w-2xl">
+          <p class="mt-6 text-lg font-light italic text-ink/65 leading-relaxed max-w-2xl">
             {description}
           </p>
         )}
@@ -122,6 +122,23 @@ const formattedDate = new Date(pubDate).toISOString().split('T')[0];
     -webkit-overflow-scrolling: touch;
     max-width: 100%;
   }
+  /* On large screens, let tables break out of the prose column AND stay
+     centered around it. Body paragraphs keep their readable ~65ch width.
+     The table sizes to its content (up to body width + 192px), then is
+     re-centered relative to the prose column via translateX. */
+  @media (min-width: 1024px) {
+    .prose-mid :global(table) {
+      display: table;
+      overflow-x: visible;
+      width: max-content;
+      max-width: calc(100% + 192px);
+      margin-left: 0;
+      margin-right: 0;
+      position: relative;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+  }
   .prose-mid :global(th),
   .prose-mid :global(td) {
     padding: 0.5rem 0.75rem;
@@ -138,5 +155,33 @@ const formattedDate = new Date(pubDate).toISOString().split('T')[0];
     .prose-mid :global(td) {
       padding: 0.625rem 1rem;
     }
+  }
+  .prose-mid :global(section[data-footnotes]) {
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 1px solid rgba(17, 17, 17, 0.12);
+    font-size: 14px;
+  }
+  .prose-mid :global(section[data-footnotes] h2) {
+    font-size: 1.25rem;
+    margin-top: 0;
+    margin-bottom: 1.25rem;
+  }
+  .prose-mid :global(section[data-footnotes] ol) {
+    list-style: decimal;
+    padding-left: 1.75rem;
+    color: rgba(17, 17, 17, 0.75);
+  }
+  .prose-mid :global(section[data-footnotes] li) {
+    margin-bottom: 0.5rem;
+    padding-left: 0.25rem;
+  }
+  .prose-mid :global(section[data-footnotes] li p) {
+    margin-bottom: 0.5rem;
+    display: inline;
+  }
+  .prose-mid :global(section[data-footnotes] a[data-footnote-backref]) {
+    border-bottom: none;
+    margin-left: 0.25rem;
   }
 </style>
