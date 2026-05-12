@@ -212,7 +212,16 @@ The mapping from a J-code to the appropriate service category for the eligibilit
 - **The curated STC mappings** live inlined in one of the page's Next.js client chunks at `/_next/static/chunks/`. At the time of writing, that chunk is `0crntnx00w6lg.js` (~47 KB), containing about 306 codes (203 CPT, 80 HCPCS Level II, 23 CDT) structured as an array of `{ code, serviceTypeCodes, description }` objects. The chunk filename is content-hashed and will rotate on every Stedi deploy.
 - **The full HCPCS Level II descriptor dictionary** ships as a separate static JSON file at the stable path `/cpt-hcpcs-stc/hcpcsLevelIIDescriptions.json` (~1 MB). It's lazy-loaded the first time you submit a search. The file holds 8,685 codes — including all 1,220 active J-codes, every L-code, every Q-code, etc. — keyed as `{ "J2315": "Injection, naltrexone, depot form, 1 mg", ... }`. As of writing, this URL is not content-hashed, which makes it the most directly useful artifact for a builder.
 
-So the lookup is a hybrid: ~306 codes have curated, payer-tested STC arrays in the JS chunk; everything else (including ~99.5% of J-codes) falls back to a category-default STC pair derived from what the code _is_. For J-codes that resolves to STC **88 (Pharmacy) + 1 (Medical Care)** — a reasonable starting point for most drug eligibility queries, but not a payer-specific answer. To re-locate the JS chunk on a future deploy: load the page with DevTools' Network tab open, `fetch()` each `_next/static/chunks/*.js` file and grep for a known mapped code (e.g., `"99214"`) — the file with the hits is the curated table. That's how I got both pieces into my pipeline.
+So the lookup is a hybrid. ~306 codes have curated, payer-tested STC arrays in the JS chunk. Everything else falls through a **prefix-rule cascade**: the chunk contains an ordered list of `{ prefixes: [...], result: { typeOfCare, serviceTypeCodes } }` entries, and the lookup picks the first prefix that matches. For J-codes this means there's a two-tier fallback:
+
+```js
+{ prefixes: ["J9"], result: { typeOfCare: "Oncology injectable",
+                              serviceTypeCodes: ["ON","78","87","88","1"] } },
+{ prefixes: ["J"],  result: { typeOfCare: "Injectable drug or biologic",
+                              serviceTypeCodes: ["88","1"] } }
+```
+
+So `J9312` (rituximab — antineoplastic) lands on the oncology branch and you'd query the 270 with STCs `ON / 78 / 87 / 88 / 1`. `J2315` (Vivitrol — not oncology) lands on the generic-injectable branch and gets STCs `88 / 1`. The same pattern applies across the other Level II letter categories. To re-locate the JS chunk on a future deploy: load the page with DevTools' Network tab open, `fetch()` each `_next/static/chunks/*.js` file and grep for a known mapped code (e.g., `"99214"`) or for `"typeOfCare"` — the file with the hits is the curated table. That's how I got both pieces into my pipeline.
 
 **Where Stedi explicitly didn't fit.** Prior authorization submission. Stedi's product surface covers eligibility, insurance discovery, and claims — the upstream and downstream of the workflow — but not the PA in the middle. Drug PA in particular still routes through X12 278 transactions where the payer supports them, payer portals where they don't, and a long tail of fax and phone for the rest. Knowing where Stedi's surface ended saved me from designing the wrong abstraction at the PA step.
 
