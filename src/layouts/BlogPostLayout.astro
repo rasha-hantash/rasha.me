@@ -122,15 +122,21 @@ const formattedDate = new Date(pubDate).toISOString().split('T')[0];
     -webkit-overflow-scrolling: touch;
     max-width: 100%;
   }
-  /* On large screens, let tables break out of the prose column so wider
-     comparison tables don't waste vertical space on cell wrap. Body
-     paragraphs stay at their readable ~65ch width. */
+  /* On large screens, let tables break out of the prose column AND stay
+     centered around it. Body paragraphs keep their readable ~65ch width.
+     The table sizes to its content (up to body width + 192px), then is
+     re-centered relative to the prose column via translateX. */
   @media (min-width: 1024px) {
     .prose-mid :global(table) {
-      margin-left: -96px;
-      margin-right: -96px;
-      width: calc(100% + 192px);
+      display: table;
+      overflow-x: visible;
+      width: max-content;
       max-width: calc(100% + 192px);
+      margin-left: 0;
+      margin-right: 0;
+      position: relative;
+      left: 50%;
+      transform: translateX(-50%);
     }
   }
   .prose-mid :global(th),

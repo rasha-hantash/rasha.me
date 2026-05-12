@@ -93,25 +93,18 @@ Of the Level II categories, J-codes are uniquely painful. CMS data shows more th
 
 **1. Units don't equal doses.** Every J-code defines a specific dosage unit, and that unit is almost never the dose a clinician thinks in. The unit definition lives in the J-code descriptor itself, and nothing in the EHR's medication record will translate "Vivitrol 380 mg IM" into "J2315 × 380 units" automatically unless someone has wired up the mapping. A few examples:
 
-| Drug (brand) | J-code | One unit =         | Typical adult dose                | Units billed |
-| ------------ | ------ | ------------------ | --------------------------------- | ------------ |
-| Vivitrol     | J2315  | 1 mg naltrexone    | 380 mg IM monthly                 | 380          |
-| Remicade     | J1745  | 10 mg infliximab   | ~400 mg (5 mg/kg, 80 kg patient)  | 40           |
-| Neulasta     | J2505  | 6 mg pegfilgrastim | 6 mg subcutaneous                 | 1            |
-| Rituxan      | J9312  | 10 mg rituximab    | ~700 mg (375 mg/m², ~1.85 m² BSA) | 70           |
+| Drug (formulation)           | J-code | One unit =         | Typical adult dose                | Units billed |
+| ---------------------------- | ------ | ------------------ | --------------------------------- | ------------ |
+| Vivitrol (depot IM)          | J2315  | 1 mg naltrexone    | 380 mg IM monthly                 | 380          |
+| Remicade (IV)                | J1745  | 10 mg infliximab   | ~400 mg (5 mg/kg, 80 kg patient)  | 40           |
+| Neulasta (subQ)              | J2505  | 6 mg pegfilgrastim | 6 mg subcutaneous                 | 1            |
+| Rituxan (IV)                 | J9312  | 10 mg rituximab    | ~700 mg (375 mg/m², ~1.85 m² BSA) | 70           |
+| Octreotide — depot IM        | J2353  | 1 mg               | 20 mg IM every 4 weeks            | 20           |
+| Octreotide — non-depot SC/IV | J2354  | 25 mcg             | 100 mcg subQ three times daily    | 4            |
 
-Each row is a different math. Vivitrol multiplies up — each milligram is a unit, so a 380 mg dose is 380 units. Remicade and Rituxan divide down — each unit is 10 mg of drug, so a 400 mg dose is 40 units. Neulasta is the trap: a single 6 mg dose is exactly one unit, but it's easy to mistakenly bill 6 units because the dose number happens to match the milligram number in the unit definition. Get any of these wrong — bill 1 unit instead of 380, or 6 instead of 1 — and the claim either denies for unreasonable units or pays at a fraction of the correct rate.
+Two things are happening in this table at once. **First**, every row is a different unit-math. Vivitrol multiplies up — each milligram is a unit, so a 380 mg dose is 380 units. Remicade and Rituxan divide down — each unit is 10 mg of drug, so a 400 mg dose is 40 units. Neulasta is the trap: a single 6 mg dose is exactly one unit, but it's easy to mistakenly bill 6 units because the dose number happens to match the milligram number in the unit definition. Get any of these wrong — bill 1 unit instead of 380, or 6 instead of 1 — and the claim either denies for unreasonable units or pays at a fraction of the correct rate.
 
-A useful clarification, since this trips people up: **the J-code itself does not change with dose**. One J-code per drug-and-formulation; dose is communicated via the _units_ field on the claim line. So Vivitrol 380 mg and a hypothetical Vivitrol 190 mg both bill as J2315 — just with units 380 vs 190.
-
-The exceptions are when CMS assigns different J-codes to different formulations of the same active ingredient — and, separately, to biosimilars distinct from the originator. **Octreotide** is the cleanest pure-formulation example:
-
-| Formulation                                       | Per-unit definition | J-code |
-| ------------------------------------------------- | ------------------- | ------ |
-| Depot form, intramuscular (long-acting)           | 1 mg                | J2353  |
-| Non-depot form, subcutaneous or IV (short-acting) | 25 mcg              | J2354  |
-
-Same active ingredient, two formulations, two J-codes — and notice the per-unit definitions are different (1 mg vs 25 mcg), so the unit math is different for each. For any one row, dose still maps to units, not to a new code. The matching layer needs to pick the right row before the unit math even starts.
+**Second**, the last two rows show the formulation split. **Octreotide** is the same active ingredient in both rows, but CMS gave each formulation its own J-code: the long-acting depot IM form gets J2353 with 1 mg as the unit, and the short-acting subQ/IV form gets J2354 with 25 mcg as the unit. So beyond the dose math, the matching layer also has to pick the right J-code for the formulation before the unit math even starts. The J-code itself does not change with dose — Vivitrol 380 mg and a hypothetical Vivitrol 190 mg both bill as J2315, just with units 380 vs 190 — but it _does_ change when the formulation does.
 
 A small builder's note on where to find this kind of mapping: the HCPCS file you can download from CMS gives you code descriptors, but not always a clean brand-name mapping. For brand → J-code → NDC, the **CMS Quarterly ASP Pricing File** (and its NDC-to-HCPCS crosswalk) is the public master list. For originator-vs-biosimilar relationships, the **FDA Purple Book** is the canonical source. Commercial vendors (First Databank, Medi-Span, RJ Health) maintain richer crosswalks if you're willing to pay.
 
